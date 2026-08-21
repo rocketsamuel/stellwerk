@@ -74,6 +74,11 @@ ROUTES = {
          "sw46": "straight",
      },
   },
+    "ABS3_HBF4": {
+     "start": "ABS3",
+     "target": "HBF4",
+     "switches": {},
+  },
 }
 
 
