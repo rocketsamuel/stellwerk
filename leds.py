@@ -1,4 +1,5 @@
 import threading
+import time
 
 from rpi_ws281x import PixelStrip, Color
 
@@ -17,6 +18,7 @@ from config import (
 # ======================================================
 
 YELLOW = (255, 180, 0)
+RED = (255, 0, 0)
 OFF = (0, 0, 0)
 
 
@@ -27,11 +29,11 @@ class LEDs:
         self.strip = PixelStrip(
             LED_COUNT,
             LED_PIN,
-            800000,       # Frequenz
-            10,           # DMA Channel
-            False,        # invert
+            800000,
+            10,
+            False,
             LED_BRIGHTNESS,
-            0             # PWM Channel
+            0
         )
 
         self.blink_thread = None
@@ -73,15 +75,13 @@ class LEDs:
                 f"(erlaubt: 1-{LED_COUNT})"
             )
 
-        # Unsere LED-Nummerierung beginnt bei 1.
-        # rpi_ws281x beginnt bei 0.
         self.strip.setPixelColor(
             led - 1,
             Color(r, g, b)
         )
 
     # ==================================================
-    # AUSGABE AN LED-STRIP
+    # LED-STRIP AKTUALISIEREN
     # ==================================================
 
     def show(self):
@@ -93,6 +93,8 @@ class LEDs:
     # ==================================================
 
     def all_off(self):
+
+        self.stop_blink()
 
         for led in range(
             1,
@@ -141,7 +143,7 @@ class LEDs:
             )
 
         # ----------------------------------------------
-        # LED für aktuelle Stellung
+        # LED der aktuellen Stellung ermitteln
         # ----------------------------------------------
 
         led = leds.get(
@@ -199,10 +201,6 @@ class LEDs:
         route_name
     ):
 
-        # ----------------------------------------------
-        # Blinken stoppen
-        # ----------------------------------------------
-
         self.stop_blink()
 
         leds = self.route_leds_for(
@@ -217,10 +215,6 @@ class LEDs:
             )
 
             return
-
-        # ----------------------------------------------
-        # LEDs dauerhaft gelb
-        # ----------------------------------------------
 
         for led in leds:
 
@@ -245,10 +239,6 @@ class LEDs:
         route_name
     ):
 
-        # ----------------------------------------------
-        # Vorheriges Blinken stoppen
-        # ----------------------------------------------
-
         self.stop_blink()
 
         leds = self.route_leds_for(
@@ -264,15 +254,7 @@ class LEDs:
 
             return
 
-        # ----------------------------------------------
-        # Blink-Event zurücksetzen
-        # ----------------------------------------------
-
         self.blink_stop_event.clear()
-
-        # ----------------------------------------------
-        # Blinkthread
-        # ----------------------------------------------
 
         def blink():
 
@@ -300,7 +282,6 @@ class LEDs:
 
                 self.show()
 
-                # Blinkintervall aus config.py
                 self.blink_stop_event.wait(
                     BLINK_INTERVAL
                 )
@@ -361,10 +342,81 @@ class LEDs:
         )
 
     # ==================================================
+    # FAHRSTRASSE: FEHLERANZEIGE
+    #
+    # 3x rot blinken
+    # ==================================================
+
+    def route_error(
+        self,
+        route_name
+    ):
+
+        # ----------------------------------------------
+        # Normales Blinken stoppen
+        # ----------------------------------------------
+
+        self.stop_blink()
+
+        leds = self.route_leds_for(
+            route_name
+        )
+
+        if not leds:
+
+            print(
+                f"Keine LEDs für Fahrstraße "
+                f"{route_name}"
+            )
+
+            return
+
+        print(
+            f"FEHLERANZEIGE: "
+            f"{route_name} -> 3x ROT"
+        )
+
+        # ----------------------------------------------
+        # Dreimal rot blinken
+        # ----------------------------------------------
+
+        for _ in range(3):
+
+            # ROT EIN
+            for led in leds:
+
+                self.set(
+                    led,
+                    *RED
+                )
+
+            self.show()
+
+            time.sleep(
+                BLINK_INTERVAL
+            )
+
+            # AUS
+            for led in leds:
+
+                self.set(
+                    led,
+                    *OFF
+                )
+
+            self.show()
+
+            time.sleep(
+                BLINK_INTERVAL
+            )
+
+    # ==================================================
     # ALLE FAHRSTRASSEN AUS
     # ==================================================
 
     def all_routes_off(self):
+
+        self.stop_blink()
 
         for leds in ROUTE_LEDS.values():
 

@@ -32,6 +32,11 @@ class Stellwerk:
         self.requested_route = None
         self.active_route = None
 
+        # Verhindert, dass während einer
+        # Fehleranzeige eine neue Fahrstraße
+        # gestartet wird.
+        self.route_error_active = False
+
     # ==================================================
     # START
     # ==================================================
@@ -44,21 +49,33 @@ class Stellwerk:
         print("==============================")
         print()
 
-        # LEDs starten
+        # ----------------------------------------------
+        # LEDs
+        # ----------------------------------------------
+
         self.leds.start()
 
-        # Z21 Listener starten
+        # ----------------------------------------------
+        # Z21
+        # ----------------------------------------------
+
         self.z21.start(
             self.on_z21_change
         )
 
-        # Taster starten
+        # ----------------------------------------------
+        # Taster
+        # ----------------------------------------------
+
         self.buttons = Buttons(
             BUTTON_PINS,
             self.on_button
         )
 
-        print("Stellwerk gestartet.")
+        print(
+            "Stellwerk gestartet."
+        )
+
         print()
 
     # ==================================================
@@ -75,14 +92,20 @@ class Stellwerk:
             f"Z21: Adresse {address} -> {position}"
         )
 
+        # ----------------------------------------------
         # Z21-Adresse einer logischen Weiche
-        # zuordnen.
+        # zuordnen
+        # ----------------------------------------------
+
         switch_name = self.switches.update(
             address,
             position
         )
 
+        # ----------------------------------------------
         # Weichen-LED aktualisieren
+        # ----------------------------------------------
+
         if switch_name:
 
             self.leds.switch_position(
@@ -90,7 +113,25 @@ class Stellwerk:
                 position
             )
 
-        # Status ausgeben
+        # ----------------------------------------------
+        # Prüfen, ob eine aktive Fahrstraße
+        # durch diese Änderung verletzt wurde.
+        # ----------------------------------------------
+
+        if (
+            switch_name
+            and self.active_route
+            and not self.route_error_active
+        ):
+
+            self.check_active_route_after_change(
+                switch_name
+            )
+
+        # ----------------------------------------------
+        # Status
+        # ----------------------------------------------
+
         for (
             name,
             state
@@ -99,6 +140,188 @@ class Stellwerk:
             print(
                 f"     {name} = {state}"
             )
+
+    # ==================================================
+    # AKTIVE FAHRSTRASSE NACH WEICHENÄNDERUNG PRÜFEN
+    # ==================================================
+
+    def check_active_route_after_change(
+        self,
+        switch_name
+    ):
+
+        # ----------------------------------------------
+        # Aktive Fahrstraße aus config/routes holen
+        # ----------------------------------------------
+
+        name, route = find_route_by_name(
+            self.active_route
+        )
+
+        if route is None:
+
+            print(
+                f"Fahrstraße "
+                f"{self.active_route} "
+                f"nicht gefunden."
+            )
+
+            return
+
+        # ----------------------------------------------
+        # Gehört die geänderte Weiche überhaupt
+        # zur aktiven Fahrstraße?
+        # ----------------------------------------------
+
+        required_switches = (
+            route.get(
+                "switches",
+                {}
+            )
+        )
+
+        if switch_name not in required_switches:
+
+            return
+
+        expected_position = (
+            required_switches[
+                switch_name
+            ]
+        )
+
+        current_position = (
+            self.switches.states.get(
+                switch_name
+            )
+        )
+
+        print()
+        print(
+            "Überprüfung aktive Fahrstraße:"
+        )
+
+        print(
+            f"  Fahrstraße: "
+            f"{self.active_route}"
+        )
+
+        print(
+            f"  Weiche: "
+            f"{switch_name}"
+        )
+
+        print(
+            f"  Erwartet: "
+            f"{expected_position}"
+        )
+
+        print(
+            f"  Aktuell: "
+            f"{current_position}"
+        )
+
+        # ----------------------------------------------
+        # Stellung weiterhin korrekt
+        # ----------------------------------------------
+
+        if (
+            current_position
+            == expected_position
+        ):
+
+            print(
+                "  -> Stellung weiterhin korrekt."
+            )
+
+            return
+
+        # ----------------------------------------------
+        # FALSCHE STELLUNG
+        # ----------------------------------------------
+
+        print()
+        print(
+            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        )
+        print(
+            "FAHRSTRASSENFEHLER"
+        )
+        print(
+            f"Weiche {switch_name} "
+            f"wurde während der aktiven "
+            f"Fahrstraße falsch gestellt."
+        )
+        print(
+            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        )
+        print()
+
+        self.handle_route_error()
+
+    # ==================================================
+    # FAHRSTRASSENFEHLER
+    # ==================================================
+
+    def handle_route_error(self):
+
+        if not self.active_route:
+
+            return
+
+        if self.route_error_active:
+
+            return
+
+        # ----------------------------------------------
+        # Sofort blockieren
+        # ----------------------------------------------
+
+        self.route_error_active = True
+
+        route_name = self.active_route
+
+        print(
+            f"Fahrstraße {route_name} "
+            f"wird wegen falscher "
+            f"Weichenstellung aufgelöst."
+        )
+
+        # ----------------------------------------------
+        # ROTE FEHLERANZEIGE
+        #
+        # Wichtig:
+        # Diese Funktion ist blockierend.
+        # Während der 3 Blinkimpulse wird
+        # keine neue Fahrstraße angenommen.
+        # ----------------------------------------------
+
+        self.leds.route_error(
+            route_name
+        )
+
+        # ----------------------------------------------
+        # Danach Fahrstraße auflösen
+        # ----------------------------------------------
+
+        self.active_route = None
+        self.requested_route = None
+        self.selected_start = None
+
+        # ----------------------------------------------
+        # Fahrstraßen-LEDs sind durch route_error()
+        # bereits ausgeschaltet.
+        #
+        # Weichen-LEDs bleiben unverändert.
+        # ----------------------------------------------
+
+        self.route_error_active = False
+
+        print()
+        print(
+            "Fahrstraße wurde aufgelöst."
+        )
+        print()
 
     # ==================================================
     # TASTER
@@ -114,7 +337,20 @@ class Stellwerk:
         )
 
         # ----------------------------------------------
-        # Wenn Fahrstraße bereits aktiv
+        # Fehleranzeige aktiv
+        # ----------------------------------------------
+
+        if self.route_error_active:
+
+            print(
+                "Momentan keine neue "
+                "Fahrstraße möglich."
+            )
+
+            return
+
+        # ----------------------------------------------
+        # Fahrstraße aktiv
         # ----------------------------------------------
 
         if self.active_route:
@@ -122,6 +358,20 @@ class Stellwerk:
             print(
                 f"Fahrstraße "
                 f"{self.active_route} ist aktiv."
+            )
+
+            return
+
+        # ----------------------------------------------
+        # Fahrstraße wird gerade angefordert
+        # ----------------------------------------------
+
+        if self.requested_route:
+
+            print(
+                f"Fahrstraße "
+                f"{self.requested_route} "
+                f"wird gerade gestellt."
             )
 
             return
@@ -165,6 +415,37 @@ class Stellwerk:
     ):
 
         # ----------------------------------------------
+        # Sicherheitsprüfung
+        # ----------------------------------------------
+
+        if self.route_error_active:
+
+            print(
+                "Fahrstraße momentan gesperrt."
+            )
+
+            return False
+
+        if self.active_route:
+
+            print(
+                f"Fahrstraße "
+                f"{self.active_route} ist bereits aktiv."
+            )
+
+            return False
+
+        if self.requested_route:
+
+            print(
+                f"Fahrstraße "
+                f"{self.requested_route} "
+                f"wird bereits gestellt."
+            )
+
+            return False
+
+        # ----------------------------------------------
         # Fahrstraße suchen
         # ----------------------------------------------
 
@@ -181,23 +462,6 @@ class Stellwerk:
                 f"{start} -> {target}"
             )
             print()
-
-            return False
-
-        # ----------------------------------------------
-        # Prüfen, ob bereits eine Fahrstraße
-        # bearbeitet wird
-        # ----------------------------------------------
-
-        if (
-            self.active_route
-            or self.requested_route
-        ):
-
-            print(
-                "Es ist bereits eine "
-                "Fahrstraße in Bearbeitung."
-            )
 
             return False
 
@@ -218,7 +482,7 @@ class Stellwerk:
         self.requested_route = name
 
         # ----------------------------------------------
-        # BLINKEN STARTEN
+        # Fahrstraßen-LEDs blinken
         # ----------------------------------------------
 
         print(
@@ -229,8 +493,7 @@ class Stellwerk:
             name
         )
 
-        # Zeitpunkt merken, an dem das Blinken
-        # begonnen hat.
+        # Zeitpunkt des Blinkstarts
         blink_started = time.monotonic()
 
         # ----------------------------------------------
@@ -266,12 +529,16 @@ class Stellwerk:
 
             self.leds.stop_blink()
 
+            self.leds.route_off(
+                name
+            )
+
             self.requested_route = None
 
             return False
 
         # ----------------------------------------------
-        # AUF Z21-RÜCKMELDUNG WARTEN
+        # AUF RÜCKMELDUNG WARTEN
         # ----------------------------------------------
 
         print()
@@ -299,7 +566,7 @@ class Stellwerk:
             ):
 
                 # --------------------------------------
-                # Mindest-Blinkzeit einhalten
+                # Mindest-Blinkzeit
                 # --------------------------------------
 
                 elapsed = (
@@ -322,14 +589,12 @@ class Stellwerk:
                     )
 
                 # --------------------------------------
-                # FAHRSTRASSE AKTIV
+                # Fahrstraße aktivieren
                 # --------------------------------------
 
                 self.requested_route = None
                 self.active_route = name
 
-                # Blinken stoppen und LEDs
-                # dauerhaft einschalten.
                 self.leds.route_on(
                     name
                 )
@@ -343,12 +608,6 @@ class Stellwerk:
                 print()
 
                 return True
-
-            # Alle 50 ms erneut prüfen.
-            #
-            # Hier wird nicht aktiv die Z21 gefragt.
-            # Es wird nur der zuletzt empfangene
-            # Broadcast-Zustand geprüft.
 
             time.sleep(
                 0.05
@@ -372,15 +631,12 @@ class Stellwerk:
 
         self.switches_status()
 
-        # Blinken stoppen
         self.leds.stop_blink()
 
-        # Fahrstraßen-LEDs ausschalten
         self.leds.route_off(
             name
         )
 
-        # Zustand zurücksetzen
         self.requested_route = None
 
         return False
@@ -411,12 +667,10 @@ class Stellwerk:
                 f"aktuell={current_position}"
             )
 
-            # Noch keine Rückmeldung
             if current_position is None:
 
                 return False
 
-            # Falsche Stellung
             if (
                 current_position
                 != expected_position
@@ -424,7 +678,6 @@ class Stellwerk:
 
                 return False
 
-        # Alle Weichen stimmen
         return True
 
     # ==================================================
@@ -441,26 +694,23 @@ class Stellwerk:
 
             return
 
+        route_name = self.active_route
+
         print()
         print(
             f"Fahrstraße aufgelöst: "
-            f"{self.active_route}"
+            f"{route_name}"
         )
 
-        route_name = self.active_route
-
         self.active_route = None
+        self.requested_route = None
+        self.selected_start = None
 
         self.leds.stop_blink()
 
-        # Fahrstraßen-LEDs ausschalten
         self.leds.route_off(
             route_name
         )
-
-        # ----------------------------------------------
-        # Die Weichen-LEDs bleiben dabei erhalten.
-        # ----------------------------------------------
 
     # ==================================================
     # WEICHENSTATUS
@@ -515,6 +765,11 @@ class Stellwerk:
         print(
             f"Aktiv: "
             f"{self.active_route}"
+        )
+
+        print(
+            f"Fehleranzeige: "
+            f"{self.route_error_active}"
         )
 
         print()
@@ -737,6 +992,27 @@ def console_mode(
         )
 
         print()
+
+
+# ======================================================
+# FAHRSTRASSE ANHAND DES NAMENS SUCHEN
+# ======================================================
+
+def find_route_by_name(
+    route_name
+):
+
+    from config import ROUTES
+
+    route = ROUTES.get(
+        route_name
+    )
+
+    if route is None:
+
+        return None, None
+
+    return route_name, route
 
 
 # ======================================================
