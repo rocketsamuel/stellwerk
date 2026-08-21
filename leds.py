@@ -344,7 +344,7 @@ class LEDs:
     # ==================================================
     # FAHRSTRASSE: FEHLERANZEIGE
     #
-    # 3x rot blinken
+    # 5x rot blinken
     # ==================================================
 
     def route_error(
@@ -380,7 +380,7 @@ class LEDs:
         # Dreimal rot blinken
         # ----------------------------------------------
 
-        for _ in range(3):
+        for _ in range(5):
 
             # ROT EIN
             for led in leds:
