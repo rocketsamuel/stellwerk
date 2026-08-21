@@ -95,7 +95,7 @@ SWITCH_LEDS = {
 }
 
 ROUTE_LEDS = {
-    "ABS1_HBF4": [1, 2],
-    "ABS2_HBF4": [5],
-    "ABS3_HBF4": [6, 7]
+    "ABS1_HBF4": [1, 2, 9],
+    "ABS2_HBF4": [5, 9],
+    "ABS3_HBF4": [6, 7, 8]
 }
