@@ -31,9 +31,9 @@ class Stellwerk:
         self.requested_route = None
         self.active_route = None
 
-    # --------------------------------------------------
+    # ==================================================
     # START
-    # --------------------------------------------------
+    # ==================================================
 
     def start(self):
 
@@ -43,15 +43,24 @@ class Stellwerk:
         print("==============================")
         print()
 
-        # WS2812B initialisieren
+        # ----------------------------------------------
+        # LEDs starten
+        # ----------------------------------------------
+
         self.leds.start()
 
-        # Z21 Listener starten
+        # ----------------------------------------------
+        # Z21 starten
+        # ----------------------------------------------
+
         self.z21.start(
             self.on_z21_change
         )
 
-        # Taster initialisieren
+        # ----------------------------------------------
+        # Taster starten
+        # ----------------------------------------------
+
         self.buttons = Buttons(
             BUTTON_PINS,
             self.on_button
@@ -60,9 +69,9 @@ class Stellwerk:
         print("Stellwerk gestartet.")
         print()
 
-    # --------------------------------------------------
+    # ==================================================
     # Z21 RÜCKMELDUNG
-    # --------------------------------------------------
+    # ==================================================
 
     def on_z21_change(
         self,
@@ -74,16 +83,19 @@ class Stellwerk:
             f"Z21: Adresse {address} -> {position}"
         )
 
-        # Z21-Adresse einer logischen Weiche
-        # zuordnen und Zustand speichern.
+        # ----------------------------------------------
+        # Adresse einer logischen Weiche zuordnen
+        # ----------------------------------------------
+
         switch_name = self.switches.update(
             address,
             position
         )
 
-        # Wenn die Adresse zu einer bekannten
-        # Weiche gehört, deren LED-Anzeige
-        # aktualisieren.
+        # ----------------------------------------------
+        # Weichen-LED aktualisieren
+        # ----------------------------------------------
+
         if switch_name:
 
             self.leds.switch_position(
@@ -91,7 +103,10 @@ class Stellwerk:
                 position
             )
 
-        # Aktuelle Zustände ausgeben
+        # ----------------------------------------------
+        # Status ausgeben
+        # ----------------------------------------------
+
         for (
             name,
             state
@@ -101,9 +116,9 @@ class Stellwerk:
                 f"     {name} = {state}"
             )
 
-    # --------------------------------------------------
+    # ==================================================
     # TASTER
-    # --------------------------------------------------
+    # ==================================================
 
     def on_button(
         self,
@@ -114,8 +129,10 @@ class Stellwerk:
             f"Taster gedrückt: {name}"
         )
 
-        # Wenn bereits eine Fahrstraße aktiv ist,
-        # ignorieren wir zunächst weitere Taster.
+        # ----------------------------------------------
+        # Wenn bereits Fahrstraße aktiv
+        # ----------------------------------------------
+
         if self.active_route:
 
             print(
@@ -125,7 +142,10 @@ class Stellwerk:
 
             return
 
+        # ----------------------------------------------
         # Erster Taster = Start
+        # ----------------------------------------------
+
         if self.selected_start is None:
 
             self.selected_start = name
@@ -136,7 +156,10 @@ class Stellwerk:
 
             return
 
+        # ----------------------------------------------
         # Zweiter Taster = Ziel
+        # ----------------------------------------------
+
         start = self.selected_start
         target = name
 
@@ -147,15 +170,19 @@ class Stellwerk:
             target
         )
 
-    # --------------------------------------------------
+    # ==================================================
     # FAHRSTRASSE ANFORDERN
-    # --------------------------------------------------
+    # ==================================================
 
     def request_route(
         self,
         start,
         target
     ):
+
+        # ----------------------------------------------
+        # Fahrstraße suchen
+        # ----------------------------------------------
 
         name, route = find_route(
             start,
@@ -172,6 +199,11 @@ class Stellwerk:
             print()
 
             return False
+
+        # ----------------------------------------------
+        # Prüfen, ob bereits eine Fahrstraße
+        # bearbeitet wird
+        # ----------------------------------------------
 
         if (
             self.active_route
@@ -201,21 +233,24 @@ class Stellwerk:
 
         self.requested_route = name
 
-        # ------------------------------------------
-        # Fahrstraßen-LEDs blinken
-        # ------------------------------------------
+        # ----------------------------------------------
+        # FAHRSTRASSEN-LEDs BLINKEN
+        #
+        # Sie blinken solange, bis alle benötigten
+        # Weichen von der Z21 korrekt bestätigt wurden.
+        # ----------------------------------------------
 
         print(
-            "Starte Fahrstraßen-LED..."
+            "Fahrstraßen-LEDs blinken..."
         )
 
         self.leds.route_blink(
             name
         )
 
-        # ------------------------------------------
-        # Weichen stellen
-        # ------------------------------------------
+        # ----------------------------------------------
+        # WEICHEN STELLEN
+        # ----------------------------------------------
 
         try:
 
@@ -244,15 +279,17 @@ class Stellwerk:
             )
             print(error)
 
+            # Blinken beenden
             self.leds.stop_blink()
 
+            # Fahrstraße zurücksetzen
             self.requested_route = None
 
             return False
 
-        # ------------------------------------------
-        # Auf Z21-Rückmeldungen warten
-        # ------------------------------------------
+        # ----------------------------------------------
+        # AUF Z21-RÜCKMELDUNG WARTEN
+        # ----------------------------------------------
 
         print()
         print(
@@ -265,6 +302,13 @@ class Stellwerk:
             + ROUTE_TIMEOUT
         )
 
+        # ----------------------------------------------
+        # Solange die Fahrstraße noch nicht korrekt
+        # gestellt ist, bleiben die LEDs im Blinkmodus.
+        #
+        # Die Prüfung erfolgt alle 50 ms.
+        # ----------------------------------------------
+
         while (
             time.monotonic()
             < deadline
@@ -274,13 +318,15 @@ class Stellwerk:
                 route
             ):
 
-                # ----------------------------------
-                # Fahrstraße erfolgreich gestellt
-                # ----------------------------------
+                # --------------------------------------
+                # FAHRSTRASSE IST KORREKT GESTELLT
+                # --------------------------------------
 
                 self.requested_route = None
                 self.active_route = name
 
+                # Blinken beenden und LEDs
+                # dauerhaft einschalten.
                 self.leds.route_on(
                     name
                 )
@@ -295,13 +341,19 @@ class Stellwerk:
 
                 return True
 
+            # 50 ms warten und erneut prüfen.
+            #
+            # Wichtig:
+            # Hier wird NICHT aktiv die Z21 gefragt.
+            # Wir prüfen lediglich den zuletzt
+            # empfangenen Broadcast-Zustand.
             time.sleep(
                 1.5
             )
 
-        # ------------------------------------------
-        # Timeout
-        # ------------------------------------------
+        # ==================================================
+        # TIMEOUT
+        # ==================================================
 
         print()
         print(
@@ -310,33 +362,65 @@ class Stellwerk:
             "korrekt zurückgemeldet."
         )
 
+        print()
         print(
             "Aktueller Weichenstatus:"
         )
 
         self.switches_status()
 
+        # ----------------------------------------------
+        # Fahrstraßen-Blinken beenden
+        # ----------------------------------------------
+
         self.leds.stop_blink()
+
+        # ----------------------------------------------
+        # Fahrstraßen-LEDs ausschalten
+        # ----------------------------------------------
+
+        route_leds = self.leds.route_leds_for(
+            name
+        )
+
+        for led in route_leds:
+
+            self.leds.set(
+                led,
+                0,
+                0,
+                0
+            )
+
+        self.leds.show()
+
+        # ----------------------------------------------
+        # Fahrstraße zurücksetzen
+        # ----------------------------------------------
 
         self.requested_route = None
 
         return False
 
-    # --------------------------------------------------
+    # ==================================================
     # FAHRSTRASSE PRÜFEN
-    # --------------------------------------------------
+    # ==================================================
 
     def route_is_correct(
         self,
         route
     ):
 
+        # ----------------------------------------------
+        # Jede benötigte Weiche prüfen
+        # ----------------------------------------------
+
         for (
             switch_name,
-            position
+            expected_position
         ) in route["switches"].items():
 
-            current = (
+            current_position = (
                 self.switches.states.get(
                     switch_name
                 )
@@ -344,19 +428,29 @@ class Stellwerk:
 
             print(
                 f"Prüfe {switch_name}: "
-                f"erwartet={position}, "
-                f"aktuell={current}"
+                f"erwartet={expected_position}, "
+                f"aktuell={current_position}"
             )
 
-            if current != position:
+            # Noch keine Rückmeldung erhalten
+            if current_position is None:
 
                 return False
 
+            # Falsche Stellung
+            if (
+                current_position
+                != expected_position
+            ):
+
+                return False
+
+        # Alle Weichen stimmen
         return True
 
-    # --------------------------------------------------
+    # ==================================================
     # FAHRSTRASSE AUFLÖSEN
-    # --------------------------------------------------
+    # ==================================================
 
     def release_route(self):
 
@@ -378,17 +472,19 @@ class Stellwerk:
 
         self.leds.stop_blink()
 
-        # Aktuell werden beim Auflösen
-        # alle LEDs ausgeschaltet.
+        # ----------------------------------------------
+        # Momentan alle LEDs ausschalten.
         #
-        # Später müssen hier die
-        # Weichenstellungs-LEDs wieder
-        # hergestellt werden.
+        # Das werden wir später ändern:
+        # Die Weichen-LEDs sollen beim Auflösen
+        # weiterhin ihre aktuelle Stellung anzeigen.
+        # ----------------------------------------------
+
         self.leds.all_off()
 
-    # --------------------------------------------------
-    # STATUS
-    # --------------------------------------------------
+    # ==================================================
+    # WEICHENSTATUS
+    # ==================================================
 
     def switches_status(self):
 
@@ -408,6 +504,10 @@ class Stellwerk:
             print(
                 f"  {name}: {position}"
             )
+
+    # ==================================================
+    # STATUS
+    # ==================================================
 
     def status(self):
 
@@ -439,9 +539,9 @@ class Stellwerk:
 
         print()
 
-    # --------------------------------------------------
+    # ==================================================
     # BEENDEN
-    # --------------------------------------------------
+    # ==================================================
 
     def stop(self):
 
@@ -450,11 +550,23 @@ class Stellwerk:
             "Stellwerk wird beendet..."
         )
 
+        # ----------------------------------------------
+        # Taster schließen
+        # ----------------------------------------------
+
         if self.buttons:
 
             self.buttons.close()
 
+        # ----------------------------------------------
+        # Z21 schließen
+        # ----------------------------------------------
+
         self.z21.stop()
+
+        # ----------------------------------------------
+        # LEDs ausschalten
+        # ----------------------------------------------
 
         self.leds.shutdown()
 
@@ -519,9 +631,9 @@ def console_mode(
 
         parts = command.split()
 
-        # ------------------------------------------
-        # LED TEST
-        # ------------------------------------------
+        # ==================================================
+        # LEDTEST
+        # ==================================================
 
         if command == "ledtest":
 
@@ -555,9 +667,9 @@ def console_mode(
 
             continue
 
-        # ------------------------------------------
+        # ==================================================
         # STATUS
-        # ------------------------------------------
+        # ==================================================
 
         if command == "status":
 
@@ -565,9 +677,9 @@ def console_mode(
 
             continue
 
-        # ------------------------------------------
+        # ==================================================
         # RELEASE
-        # ------------------------------------------
+        # ==================================================
 
         if command == "release":
 
@@ -575,17 +687,17 @@ def console_mode(
 
             continue
 
-        # ------------------------------------------
+        # ==================================================
         # QUIT
-        # ------------------------------------------
+        # ==================================================
 
         if command == "quit":
 
             return False
 
-        # ------------------------------------------
+        # ==================================================
         # START
-        # ------------------------------------------
+        # ==================================================
 
         if (
             len(parts) == 2
@@ -603,9 +715,9 @@ def console_mode(
 
             continue
 
-        # ------------------------------------------
+        # ==================================================
         # ROUTE
-        # ------------------------------------------
+        # ==================================================
 
         if (
             len(parts) == 3
@@ -619,14 +731,15 @@ def console_mode(
 
             continue
 
-        # ------------------------------------------
+        # ==================================================
         # UNBEKANNTER BEFEHL
-        # ------------------------------------------
+        # ==================================================
 
         print(
             "Unbekannter Befehl."
         )
 
+        print()
         print(
             "Mögliche Befehle:"
         )
@@ -655,6 +768,8 @@ def console_mode(
             "  quit"
         )
 
+        print()
+
 
 # ======================================================
 # MAIN
@@ -675,11 +790,29 @@ def main():
     except KeyboardInterrupt:
 
         print()
+        print(
+            "Abbruch durch Benutzer."
+        )
+
+    except Exception as error:
+
+        print()
+        print("==============================")
+        print("FEHLER")
+        print("==============================")
+        print(error)
+        print()
+
+        raise
 
     finally:
 
         stellwerk.stop()
 
+
+# ======================================================
+# PROGRAMMSTART
+# ======================================================
 
 if __name__ == "__main__":
 

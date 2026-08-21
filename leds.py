@@ -11,6 +11,10 @@ from config import (
 )
 
 
+# ======================================================
+# FARBEN
+# ======================================================
+
 YELLOW = (255, 180, 0)
 OFF = (0, 0, 0)
 
@@ -22,19 +26,19 @@ class LEDs:
         self.strip = PixelStrip(
             LED_COUNT,
             LED_PIN,
-            800000,
-            10,
-            False,
+            800000,       # LED frequency
+            10,           # DMA channel
+            False,        # invert
             LED_BRIGHTNESS,
-            0
+            0             # channel
         )
 
         self.blink_thread = None
         self.blink_stop_event = threading.Event()
 
-    # --------------------------------------------------
+    # ==================================================
     # START
-    # --------------------------------------------------
+    # ==================================================
 
     def start(self):
 
@@ -42,9 +46,16 @@ class LEDs:
 
         self.all_off()
 
-    # --------------------------------------------------
-    # EINZELNE LED
-    # --------------------------------------------------
+        print(
+            f"WS2812B gestartet: "
+            f"{LED_COUNT} LEDs, "
+            f"GPIO {LED_PIN}, "
+            f"Helligkeit {LED_BRIGHTNESS}"
+        )
+
+    # ==================================================
+    # EINZELNE LED SETZEN
+    # ==================================================
 
     def set(
         self,
@@ -55,28 +66,33 @@ class LEDs:
     ):
 
         if led < 1 or led > LED_COUNT:
+
             raise ValueError(
-                f"Ungültige LED-Nummer: {led}"
+                f"Ungültige LED-Nummer: "
+                f"{led} "
+                f"(erlaubt: 1-{LED_COUNT})"
             )
 
         # Unsere Nummerierung beginnt bei 1.
-        # rpi_ws281x beginnt bei 0.
+        #
+        # rpi_ws281x verwendet dagegen
+        # eine Nummerierung ab 0.
         self.strip.setPixelColor(
             led - 1,
             Color(r, g, b)
         )
 
-    # --------------------------------------------------
-    # ANZEIGEN
-    # --------------------------------------------------
+    # ==================================================
+    # LEDs ANZEIGEN
+    # ==================================================
 
     def show(self):
 
         self.strip.show()
 
-    # --------------------------------------------------
-    # ALLE AUS
-    # --------------------------------------------------
+    # ==================================================
+    # ALLE LEDs AUS
+    # ==================================================
 
     def all_off(self):
 
@@ -92,9 +108,9 @@ class LEDs:
 
         self.show()
 
-    # --------------------------------------------------
+    # ==================================================
     # WEICHENSTELLUNG ANZEIGEN
-    # --------------------------------------------------
+    # ==================================================
 
     def switch_position(
         self,
@@ -115,7 +131,10 @@ class LEDs:
 
             return
 
-        # Alle LEDs dieser Weiche ausschalten.
+        # ----------------------------------------------
+        # Alle LEDs dieser Weiche ausschalten
+        # ----------------------------------------------
+
         for led in leds.values():
 
             self.set(
@@ -123,7 +142,10 @@ class LEDs:
                 *OFF
             )
 
-        # LED der aktuellen Stellung einschalten.
+        # ----------------------------------------------
+        # LED der aktuellen Stellung bestimmen
+        # ----------------------------------------------
+
         led = leds.get(
             position
         )
@@ -139,6 +161,10 @@ class LEDs:
 
             return
 
+        # ----------------------------------------------
+        # Aktuelle Stellung gelb anzeigen
+        # ----------------------------------------------
+
         self.set(
             led,
             *YELLOW
@@ -147,49 +173,42 @@ class LEDs:
         self.show()
 
         print(
-            f"LED Weiche {switch_name}: "
-            f"{position} -> LED {led}"
+            f"Weichen-LED: "
+            f"{switch_name} = {position} "
+            f"-> LED {led}"
         )
 
-    # --------------------------------------------------
-    # FAHRSTRASSE EIN
-    # --------------------------------------------------
+    # ==================================================
+    # FAHRSTRASSEN-LEDs ERMITTELN
+    # ==================================================
+
+    def route_leds_for(
+        self,
+        route_name
+    ):
+
+        return ROUTE_LEDS.get(
+            route_name,
+            []
+        )
+
+    # ==================================================
+    # FAHRSTRASSE DAUERHAFT EIN
+    # ==================================================
 
     def route_on(
         self,
         route_name
     ):
 
-        self.stop_blink()
-
-        leds = ROUTE_LEDS.get(
-            route_name,
-            []
-        )
-
-        for led in leds:
-
-            self.set(
-                led,
-                *YELLOW
-            )
-
-        self.show()
-
-    # --------------------------------------------------
-    # FAHRSTRASSE BLINKEN
-    # --------------------------------------------------
-
-    def route_blink(
-        self,
-        route_name
-    ):
+        # ----------------------------------------------
+        # Blinkthread stoppen
+        # ----------------------------------------------
 
         self.stop_blink()
 
-        leds = ROUTE_LEDS.get(
-            route_name,
-            []
+        leds = self.route_leds_for(
+            route_name
         )
 
         if not leds:
@@ -201,7 +220,61 @@ class LEDs:
 
             return
 
+        # ----------------------------------------------
+        # Fahrstraßen-LEDs einschalten
+        # ----------------------------------------------
+
+        for led in leds:
+
+            self.set(
+                led,
+                *YELLOW
+            )
+
+        self.show()
+
+        print(
+            f"Fahrstraßen-LEDs EIN: "
+            f"{route_name} -> {leds}"
+        )
+
+    # ==================================================
+    # FAHRSTRASSE BLINKEN
+    # ==================================================
+
+    def route_blink(
+        self,
+        route_name
+    ):
+
+        # ----------------------------------------------
+        # Bereits laufendes Blinken stoppen
+        # ----------------------------------------------
+
+        self.stop_blink()
+
+        leds = self.route_leds_for(
+            route_name
+        )
+
+        if not leds:
+
+            print(
+                f"Keine LEDs für Fahrstraße "
+                f"{route_name}"
+            )
+
+            return
+
+        # ----------------------------------------------
+        # Stop-Event zurücksetzen
+        # ----------------------------------------------
+
         self.blink_stop_event.clear()
+
+        # ----------------------------------------------
+        # Blinkthread
+        # ----------------------------------------------
 
         def blink():
 
@@ -229,6 +302,11 @@ class LEDs:
 
                 self.show()
 
+                # 500 ms EIN / AUS
+                #
+                # wait() statt sleep(), damit der
+                # Thread beim Stoppen sofort
+                # reagieren kann.
                 self.blink_stop_event.wait(
                     0.5
                 )
@@ -240,9 +318,14 @@ class LEDs:
 
         self.blink_thread.start()
 
-    # --------------------------------------------------
+        print(
+            f"Fahrstraßen-LEDs BLINKEN: "
+            f"{route_name} -> {leds}"
+        )
+
+    # ==================================================
     # BLINKEN STOPPEN
-    # --------------------------------------------------
+    # ==================================================
 
     def stop_blink(self):
 
@@ -256,11 +339,59 @@ class LEDs:
 
             self.blink_thread = None
 
-    # --------------------------------------------------
+    # ==================================================
+    # FAHRSTRASSE AUS
+    # ==================================================
+
+    def route_off(
+        self,
+        route_name
+    ):
+
+        leds = self.route_leds_for(
+            route_name
+        )
+
+        for led in leds:
+
+            self.set(
+                led,
+                *OFF
+            )
+
+        self.show()
+
+        print(
+            f"Fahrstraßen-LEDs AUS: "
+            f"{route_name}"
+        )
+
+    # ==================================================
+    # ALLE FAHRSTRASSEN AUS
+    # ==================================================
+
+    def all_routes_off(self):
+
+        for leds in ROUTE_LEDS.values():
+
+            for led in leds:
+
+                self.set(
+                    led,
+                    *OFF
+                )
+
+        self.show()
+
+    # ==================================================
     # BEENDEN
-    # --------------------------------------------------
+    # ==================================================
 
     def shutdown(self):
+
+        print(
+            "LEDs werden ausgeschaltet..."
+        )
 
         self.stop_blink()
 
