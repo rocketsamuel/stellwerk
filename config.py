@@ -12,7 +12,7 @@ LED_PIN = 18
 LED_BRIGHTNESS = 64
 
 BLINK_INTERVAL = 0.5
-ROUTE_MIN_BLINK_TIME = 0.6
+ROUTE_MIN_BLINK_TIME = 1
 
 # ---------------------------------------------------------
 # TASTER
