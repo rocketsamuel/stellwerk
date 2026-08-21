@@ -3,6 +3,7 @@ import time
 from config import (
     BUTTON_PINS,
     ROUTE_TIMEOUT,
+    ROUTE_MIN_BLINK_TIME,
     LED_COUNT,
 )
 
@@ -43,24 +44,15 @@ class Stellwerk:
         print("==============================")
         print()
 
-        # ----------------------------------------------
         # LEDs starten
-        # ----------------------------------------------
-
         self.leds.start()
 
-        # ----------------------------------------------
-        # Z21 starten
-        # ----------------------------------------------
-
+        # Z21 Listener starten
         self.z21.start(
             self.on_z21_change
         )
 
-        # ----------------------------------------------
         # Taster starten
-        # ----------------------------------------------
-
         self.buttons = Buttons(
             BUTTON_PINS,
             self.on_button
@@ -83,19 +75,14 @@ class Stellwerk:
             f"Z21: Adresse {address} -> {position}"
         )
 
-        # ----------------------------------------------
-        # Adresse einer logischen Weiche zuordnen
-        # ----------------------------------------------
-
+        # Z21-Adresse einer logischen Weiche
+        # zuordnen.
         switch_name = self.switches.update(
             address,
             position
         )
 
-        # ----------------------------------------------
         # Weichen-LED aktualisieren
-        # ----------------------------------------------
-
         if switch_name:
 
             self.leds.switch_position(
@@ -103,10 +90,7 @@ class Stellwerk:
                 position
             )
 
-        # ----------------------------------------------
         # Status ausgeben
-        # ----------------------------------------------
-
         for (
             name,
             state
@@ -130,7 +114,7 @@ class Stellwerk:
         )
 
         # ----------------------------------------------
-        # Wenn bereits Fahrstraße aktiv
+        # Wenn Fahrstraße bereits aktiv
         # ----------------------------------------------
 
         if self.active_route:
@@ -234,10 +218,7 @@ class Stellwerk:
         self.requested_route = name
 
         # ----------------------------------------------
-        # FAHRSTRASSEN-LEDs BLINKEN
-        #
-        # Sie blinken solange, bis alle benötigten
-        # Weichen von der Z21 korrekt bestätigt wurden.
+        # BLINKEN STARTEN
         # ----------------------------------------------
 
         print(
@@ -247,6 +228,10 @@ class Stellwerk:
         self.leds.route_blink(
             name
         )
+
+        # Zeitpunkt merken, an dem das Blinken
+        # begonnen hat.
+        blink_started = time.monotonic()
 
         # ----------------------------------------------
         # WEICHEN STELLEN
@@ -279,10 +264,8 @@ class Stellwerk:
             )
             print(error)
 
-            # Blinken beenden
             self.leds.stop_blink()
 
-            # Fahrstraße zurücksetzen
             self.requested_route = None
 
             return False
@@ -303,10 +286,7 @@ class Stellwerk:
         )
 
         # ----------------------------------------------
-        # Solange die Fahrstraße noch nicht korrekt
-        # gestellt ist, bleiben die LEDs im Blinkmodus.
-        #
-        # Die Prüfung erfolgt alle 50 ms.
+        # PRÜFSCHLEIFE
         # ----------------------------------------------
 
         while (
@@ -319,13 +299,36 @@ class Stellwerk:
             ):
 
                 # --------------------------------------
-                # FAHRSTRASSE IST KORREKT GESTELLT
+                # Mindest-Blinkzeit einhalten
+                # --------------------------------------
+
+                elapsed = (
+                    time.monotonic()
+                    - blink_started
+                )
+
+                if (
+                    elapsed
+                    < ROUTE_MIN_BLINK_TIME
+                ):
+
+                    remaining = (
+                        ROUTE_MIN_BLINK_TIME
+                        - elapsed
+                    )
+
+                    time.sleep(
+                        remaining
+                    )
+
+                # --------------------------------------
+                # FAHRSTRASSE AKTIV
                 # --------------------------------------
 
                 self.requested_route = None
                 self.active_route = name
 
-                # Blinken beenden und LEDs
+                # Blinken stoppen und LEDs
                 # dauerhaft einschalten.
                 self.leds.route_on(
                     name
@@ -341,14 +344,14 @@ class Stellwerk:
 
                 return True
 
-            # 50 ms warten und erneut prüfen.
+            # Alle 50 ms erneut prüfen.
             #
-            # Wichtig:
-            # Hier wird NICHT aktiv die Z21 gefragt.
-            # Wir prüfen lediglich den zuletzt
-            # empfangenen Broadcast-Zustand.
+            # Hier wird nicht aktiv die Z21 gefragt.
+            # Es wird nur der zuletzt empfangene
+            # Broadcast-Zustand geprüft.
+
             time.sleep(
-                1.5
+                0.05
             )
 
         # ==================================================
@@ -369,35 +372,15 @@ class Stellwerk:
 
         self.switches_status()
 
-        # ----------------------------------------------
-        # Fahrstraßen-Blinken beenden
-        # ----------------------------------------------
-
+        # Blinken stoppen
         self.leds.stop_blink()
 
-        # ----------------------------------------------
         # Fahrstraßen-LEDs ausschalten
-        # ----------------------------------------------
-
-        route_leds = self.leds.route_leds_for(
+        self.leds.route_off(
             name
         )
 
-        for led in route_leds:
-
-            self.leds.set(
-                led,
-                0,
-                0,
-                0
-            )
-
-        self.leds.show()
-
-        # ----------------------------------------------
-        # Fahrstraße zurücksetzen
-        # ----------------------------------------------
-
+        # Zustand zurücksetzen
         self.requested_route = None
 
         return False
@@ -410,10 +393,6 @@ class Stellwerk:
         self,
         route
     ):
-
-        # ----------------------------------------------
-        # Jede benötigte Weiche prüfen
-        # ----------------------------------------------
 
         for (
             switch_name,
@@ -432,7 +411,7 @@ class Stellwerk:
                 f"aktuell={current_position}"
             )
 
-            # Noch keine Rückmeldung erhalten
+            # Noch keine Rückmeldung
             if current_position is None:
 
                 return False
@@ -468,19 +447,20 @@ class Stellwerk:
             f"{self.active_route}"
         )
 
+        route_name = self.active_route
+
         self.active_route = None
 
         self.leds.stop_blink()
 
-        # ----------------------------------------------
-        # Momentan alle LEDs ausschalten.
-        #
-        # Das werden wir später ändern:
-        # Die Weichen-LEDs sollen beim Auflösen
-        # weiterhin ihre aktuelle Stellung anzeigen.
-        # ----------------------------------------------
+        # Fahrstraßen-LEDs ausschalten
+        self.leds.route_off(
+            route_name
+        )
 
-        self.leds.all_off()
+        # ----------------------------------------------
+        # Die Weichen-LEDs bleiben dabei erhalten.
+        # ----------------------------------------------
 
     # ==================================================
     # WEICHENSTATUS
@@ -550,23 +530,11 @@ class Stellwerk:
             "Stellwerk wird beendet..."
         )
 
-        # ----------------------------------------------
-        # Taster schließen
-        # ----------------------------------------------
-
         if self.buttons:
 
             self.buttons.close()
 
-        # ----------------------------------------------
-        # Z21 schließen
-        # ----------------------------------------------
-
         self.z21.stop()
-
-        # ----------------------------------------------
-        # LEDs ausschalten
-        # ----------------------------------------------
 
         self.leds.shutdown()
 

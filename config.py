@@ -11,6 +11,9 @@ LED_COUNT = 20
 LED_PIN = 18
 LED_BRIGHTNESS = 64
 
+BLINK_INTERVAL = 0.5
+ROUTE_MIN_BLINK_TIME = 0.6
+
 # ---------------------------------------------------------
 # TASTER
 # BCM-GPIO-Nummern

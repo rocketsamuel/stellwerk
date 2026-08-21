@@ -18,7 +18,7 @@ LED_BRIGHTNESS = 32 # 64
 
 LED_INVERT = False
 LED_CHANNEL = 0
-
+BLINK_INTERVAL = 0.5
 
 # -----------------------------
 # Farben
@@ -66,7 +66,6 @@ def main():
         sys.exit(1)
 
     try:
-        r, g, b = get_color(sys.argv[1])
     except ValueError as error:
         print(error)
         sys.exit(1)

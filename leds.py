@@ -8,6 +8,7 @@ from config import (
     LED_BRIGHTNESS,
     SWITCH_LEDS,
     ROUTE_LEDS,
+    BLINK_INTERVAL,
 )
 
 
@@ -26,11 +27,11 @@ class LEDs:
         self.strip = PixelStrip(
             LED_COUNT,
             LED_PIN,
-            800000,       # LED frequency
-            10,           # DMA channel
+            800000,       # Frequenz
+            10,           # DMA Channel
             False,        # invert
             LED_BRIGHTNESS,
-            0             # channel
+            0             # PWM Channel
         )
 
         self.blink_thread = None
@@ -68,22 +69,19 @@ class LEDs:
         if led < 1 or led > LED_COUNT:
 
             raise ValueError(
-                f"Ungültige LED-Nummer: "
-                f"{led} "
+                f"Ungültige LED-Nummer: {led} "
                 f"(erlaubt: 1-{LED_COUNT})"
             )
 
-        # Unsere Nummerierung beginnt bei 1.
-        #
-        # rpi_ws281x verwendet dagegen
-        # eine Nummerierung ab 0.
+        # Unsere LED-Nummerierung beginnt bei 1.
+        # rpi_ws281x beginnt bei 0.
         self.strip.setPixelColor(
             led - 1,
             Color(r, g, b)
         )
 
     # ==================================================
-    # LEDs ANZEIGEN
+    # AUSGABE AN LED-STRIP
     # ==================================================
 
     def show(self):
@@ -143,7 +141,7 @@ class LEDs:
             )
 
         # ----------------------------------------------
-        # LED der aktuellen Stellung bestimmen
+        # LED für aktuelle Stellung
         # ----------------------------------------------
 
         led = leds.get(
@@ -202,7 +200,7 @@ class LEDs:
     ):
 
         # ----------------------------------------------
-        # Blinkthread stoppen
+        # Blinken stoppen
         # ----------------------------------------------
 
         self.stop_blink()
@@ -221,7 +219,7 @@ class LEDs:
             return
 
         # ----------------------------------------------
-        # Fahrstraßen-LEDs einschalten
+        # LEDs dauerhaft gelb
         # ----------------------------------------------
 
         for led in leds:
@@ -248,7 +246,7 @@ class LEDs:
     ):
 
         # ----------------------------------------------
-        # Bereits laufendes Blinken stoppen
+        # Vorheriges Blinken stoppen
         # ----------------------------------------------
 
         self.stop_blink()
@@ -267,7 +265,7 @@ class LEDs:
             return
 
         # ----------------------------------------------
-        # Stop-Event zurücksetzen
+        # Blink-Event zurücksetzen
         # ----------------------------------------------
 
         self.blink_stop_event.clear()
@@ -302,13 +300,9 @@ class LEDs:
 
                 self.show()
 
-                # 500 ms EIN / AUS
-                #
-                # wait() statt sleep(), damit der
-                # Thread beim Stoppen sofort
-                # reagieren kann.
+                # Blinkintervall aus config.py
                 self.blink_stop_event.wait(
-                    0.5
+                    BLINK_INTERVAL
                 )
 
         self.blink_thread = threading.Thread(
