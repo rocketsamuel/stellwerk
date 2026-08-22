@@ -1,17 +1,15 @@
 import time
+import threading
 
 from config import (
     BUTTON_PINS,
+    ROUTES,
     ROUTE_TIMEOUT,
-    ROUTE_MIN_BLINK_TIME,
-    LED_COUNT,
 )
 
 from z21 import Z21
 from switches import SwitchController
-from routes import find_route
 from leds import LEDs
-from buttons import Buttons
 
 
 class Stellwerk:
@@ -26,23 +24,25 @@ class Stellwerk:
 
         self.leds = LEDs()
 
-        self.buttons = None
+        self.running = False
 
         # -------------------------------------------------
-        # Fahrstraßenstatus
+        # Aktive Fahrstraßen
         # -------------------------------------------------
 
-        self.selected_start = None
-
-        self.requested_route = None
-
-        self.active_route = None
+        self.active_routes = {}
 
         # -------------------------------------------------
-        # Fehleranzeige
+        # Starttaster merken
         # -------------------------------------------------
 
-        self.route_error_active = False
+        self.pending_start = None
+
+        # -------------------------------------------------
+        # GPIO-Taster
+        # -------------------------------------------------
+
+        self.buttons = {}
 
     # =====================================================
     # START
@@ -56,360 +56,128 @@ class Stellwerk:
         print("==============================")
         print()
 
-        # -------------------------------------------------
-        # LEDs
-        # -------------------------------------------------
-
         self.leds.start()
 
         # -------------------------------------------------
-        # Z21
+        # Z21 starten
         # -------------------------------------------------
 
         self.z21.start(
-            self.on_z21_change
+            self.on_z21_update
         )
 
         # -------------------------------------------------
-        # Taster
+        # Taster starten
         # -------------------------------------------------
 
-        self.buttons = Buttons(
-            BUTTON_PINS,
-            self.on_button
-        )
+        self.setup_buttons()
+
+        self.running = True
 
         print()
-        print(
-            "Stellwerk gestartet."
-        )
-        print()
-
-    # =====================================================
-    # Z21 RÜCKMELDUNG
-    # =====================================================
-
-    def on_z21_change(
-        self,
-        address,
-        position
-    ):
-
-        print(
-            f"Z21: Adresse {address} -> {position}"
-        )
-
-        # -------------------------------------------------
-        # Z21-Adresse einer logischen Weiche zuordnen
-        # -------------------------------------------------
-
-        switch_name = self.switches.update(
-            address,
-            position
-        )
-
-        # -------------------------------------------------
-        # Weichen-LED aktualisieren
-        # -------------------------------------------------
-
-        if switch_name:
-
-            self.leds.switch_position(
-                switch_name,
-                position
-            )
-
-        # -------------------------------------------------
-        # Aktive Fahrstraße überwachen
-        # -------------------------------------------------
-
-        if (
-            switch_name
-            and self.active_route
-            and not self.route_error_active
-        ):
-
-            self.check_active_route_after_change(
-                switch_name
-            )
-
-        # -------------------------------------------------
-        # Status ausgeben
-        # -------------------------------------------------
-
-        for (
-            name,
-            state
-        ) in self.switches.states.items():
-
-            print(
-                f"     {name} = {state}"
-            )
-
-    # =====================================================
-    # AKTIVE FAHRSTRASSE NACH WEICHENÄNDERUNG PRÜFEN
-    # =====================================================
-
-    def check_active_route_after_change(
-        self,
-        switch_name
-    ):
-
-        name, route = find_route_by_name(
-            self.active_route
-        )
-
-        if route is None:
-
-            print(
-                f"Fahrstraße "
-                f"{self.active_route} "
-                f"nicht gefunden."
-            )
-
-            return
-
-        # -------------------------------------------------
-        # Gehört die Weiche zur aktiven Fahrstraße?
-        # -------------------------------------------------
-
-        required_switches = route.get(
-            "switches",
-            {}
-        )
-
-        if switch_name not in required_switches:
-
-            return
-
-        expected_position = (
-            required_switches[
-                switch_name
-            ]
-        )
-
-        current_position = (
-            self.switches.states.get(
-                switch_name
-            )
-        )
-
-        print()
-        print(
-            "Überprüfung aktive Fahrstraße:"
-        )
-
-        print(
-            f"  Fahrstraße: "
-            f"{self.active_route}"
-        )
-
-        print(
-            f"  Weiche: "
-            f"{switch_name}"
-        )
-
-        print(
-            f"  Erwartet: "
-            f"{expected_position}"
-        )
-
-        print(
-            f"  Aktuell: "
-            f"{current_position}"
-        )
-
-        # -------------------------------------------------
-        # Stellung korrekt
-        # -------------------------------------------------
-
-        if current_position == expected_position:
-
-            print(
-                "  -> Stellung weiterhin korrekt."
-            )
-
-            return
-
-        # -------------------------------------------------
-        # FALSCHE STELLUNG
-        # -------------------------------------------------
-
-        print()
-        print(
-            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        )
-        print(
-            "FAHRSTRASSENFEHLER"
-        )
-        print(
-            f"Weiche {switch_name} "
-            f"wurde während der aktiven "
-            f"Fahrstraße falsch gestellt."
-        )
-        print(
-            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        )
-        print()
-
-        self.handle_route_error()
-
-    # =====================================================
-    # FAHRSTRASSENFEHLER
-    # =====================================================
-
-    def handle_route_error(self):
-
-        if not self.active_route:
-
-            return
-
-        if self.route_error_active:
-
-            return
-
-        # -------------------------------------------------
-        # Sofort sperren
-        # -------------------------------------------------
-
-        self.route_error_active = True
-
-        route_name = self.active_route
-
-        print(
-            f"Fahrstraße {route_name} "
-            f"wird wegen falscher "
-            f"Weichenstellung aufgelöst."
-        )
-
-        # -------------------------------------------------
-        # 5× rot blinken
-        #
-        # Deine aktuelle Einstellung:
-        # leds.py -> range(5)
-        # -------------------------------------------------
-
-        self.leds.route_error(
-            route_name
-        )
-
-        # -------------------------------------------------
-        # Fahrstraße auflösen
-        # -------------------------------------------------
-
-        self.active_route = None
-
-        self.requested_route = None
-
-        self.selected_start = None
-
-        # -------------------------------------------------
-        # route_error() hat die
-        # Fahrstraßen-LEDs bereits ausgeschaltet.
-        #
-        # Weichen-LEDs bleiben erhalten.
-        # -------------------------------------------------
-
-        self.route_error_active = False
-
-        print()
-        print(
-            "Fahrstraße wurde aufgelöst."
-        )
+        print("Stellwerk läuft.")
         print()
 
     # =====================================================
     # TASTER
     # =====================================================
 
+    def setup_buttons(self):
+
+        try:
+
+            from gpiozero import Button
+
+        except ImportError:
+
+            print(
+                "WARNUNG: gpiozero ist nicht "
+                "installiert."
+            )
+
+            return
+
+        for name, pin in BUTTON_PINS.items():
+
+            if pin is None:
+                continue
+
+            try:
+
+                button = Button(
+                    pin,
+                    pull_up=True,
+                    bounce_time=0.05,
+                )
+
+                button.when_pressed = (
+                    lambda n=name:
+                    self.on_button(n)
+                )
+
+                self.buttons[name] = button
+
+                print(
+                    f"Taster {name} "
+                    f"auf GPIO {pin} aktiviert."
+                )
+
+            except Exception as exc:
+
+                print(
+                    f"Fehler bei Taster "
+                    f"{name}: {exc}"
+                )
+
+    # =====================================================
+    # TASTER GEDRÜCKT
+    # =====================================================
+
     def on_button(
         self,
-        name
+        button_name,
     ):
 
         print()
         print(
-            f"Taster gedrückt: {name}"
+            f"Taster gedrückt: "
+            f"{button_name}"
         )
 
         # -------------------------------------------------
-        # AUFLÖSE-TASTER
+        # ABS0 = Fahrstraßen auflösen
         # -------------------------------------------------
 
-        if name == "RELEASE":
+        if button_name == "ABS0":
 
-            self.handle_release_button()
+            self.resolve_all_routes()
 
             return
 
         # -------------------------------------------------
-        # Während Fehleranzeige keine Bedienung
+        # Aktiven Startpunkt merken
         # -------------------------------------------------
 
-        if self.route_error_active:
+        if self.pending_start is None:
+
+            self.pending_start = button_name
 
             print(
-                "Momentan keine neue "
-                "Fahrstraße möglich."
+                f"Startpunkt gewählt: "
+                f"{button_name}"
             )
 
             return
 
         # -------------------------------------------------
-        # Fahrstraße bereits aktiv
+        # Zweiten Taster = Ziel
         # -------------------------------------------------
 
-        if self.active_route:
+        start = self.pending_start
 
-            print(
-                f"Fahrstraße "
-                f"{self.active_route} ist aktiv."
-            )
+        target = button_name
 
-            print(
-                "Zum Auflösen bitte "
-                "RELEASE drücken."
-            )
-
-            return
-
-        # -------------------------------------------------
-        # Fahrstraße wird gerade gestellt
-        # -------------------------------------------------
-
-        if self.requested_route:
-
-            print(
-                f"Fahrstraße "
-                f"{self.requested_route} "
-                f"wird gerade gestellt."
-            )
-
-            return
-
-        # -------------------------------------------------
-        # Erster Taster = Start
-        # -------------------------------------------------
-
-        if self.selected_start is None:
-
-            self.selected_start = name
-
-            print(
-                f"Start gewählt: {name}"
-            )
-
-            return
-
-        # -------------------------------------------------
-        # Zweiter Taster = Ziel
-        # -------------------------------------------------
-
-        start = self.selected_start
-
-        target = name
-
-        self.selected_start = None
+        self.pending_start = None
 
         self.request_route(
             start,
@@ -417,66 +185,26 @@ class Stellwerk:
         )
 
     # =====================================================
-    # AUFLÖSE-TASTER
+    # FAHRSTRASSE SUCHEN
     # =====================================================
 
-    def handle_release_button(self):
+    def find_route(
+        self,
+        start,
+        target,
+    ):
 
-        # -------------------------------------------------
-        # Fehleranzeige aktiv
-        # -------------------------------------------------
+        for route_name, route in ROUTES.items():
 
-        if self.route_error_active:
+            if (
+                route.get("start") == start
+                and
+                route.get("target") == target
+            ):
 
-            print(
-                "Fehleranzeige läuft."
-            )
+                return route_name
 
-            print(
-                "Auflösetaster momentan ohne Funktion."
-            )
-
-            return
-
-        # -------------------------------------------------
-        # Fahrstraße wird gerade gestellt
-        # -------------------------------------------------
-
-        if self.requested_route:
-
-            print(
-                "Fahrstraße wird gerade gestellt."
-            )
-
-            print(
-                "Bitte auf Rückmeldung warten."
-            )
-
-            return
-
-        # -------------------------------------------------
-        # Keine aktive Fahrstraße
-        # -------------------------------------------------
-
-        if not self.active_route:
-
-            print(
-                "Keine Fahrstraße aktiv."
-            )
-
-            return
-
-        # -------------------------------------------------
-        # Fahrstraße auflösen
-        # -------------------------------------------------
-
-        print(
-            f"Auflösetaster: "
-            f"Fahrstraße "
-            f"{self.active_route}"
-        )
-
-        self.release_route()
+        return None
 
     # =====================================================
     # FAHRSTRASSE ANFORDERN
@@ -485,626 +213,429 @@ class Stellwerk:
     def request_route(
         self,
         start,
-        target
+        target,
     ):
 
-        # -------------------------------------------------
-        # Sicherheitsprüfungen
-        # -------------------------------------------------
+        print()
+        print(
+            f"Fahrstraße: "
+            f"{start} -> {target}"
+        )
 
-        if self.route_error_active:
-
-            print(
-                "Fahrstraße momentan gesperrt."
-            )
-
-            return False
-
-        if self.active_route:
-
-            print(
-                f"Fahrstraße "
-                f"{self.active_route} "
-                f"ist bereits aktiv."
-            )
-
-            return False
-
-        if self.requested_route:
-
-            print(
-                f"Fahrstraße "
-                f"{self.requested_route} "
-                f"wird bereits gestellt."
-            )
-
-            return False
-
-        # -------------------------------------------------
-        # Fahrstraße suchen
-        # -------------------------------------------------
-
-        name, route = find_route(
+        route_name = self.find_route(
             start,
             target
         )
 
-        if route is None:
+        if route_name is None:
 
-            print()
             print(
-                f"Keine Fahrstraße "
-                f"{start} -> {target}"
+                "Keine passende Fahrstraße "
+                "gefunden."
             )
-            print()
 
-            return False
-
-        print()
-        print("==============================")
-        print(
-            "Fahrstraße angefordert:"
-        )
-        print(
-            f"{start} -> {target}"
-        )
-        print(
-            f"Name: {name}"
-        )
-        print("==============================")
-        print()
-
-        self.requested_route = name
+            return
 
         # -------------------------------------------------
-        # Fahrstraßen-LEDs blinken
+        # Bereits aktiv?
+        # -------------------------------------------------
+
+        if route_name in self.active_routes:
+
+            print(
+                f"Fahrstraße {route_name} "
+                f"ist bereits aktiv."
+            )
+
+            return
+
+        route = ROUTES[route_name]
+
+        # -------------------------------------------------
+        # Fahrstraße schalten
         # -------------------------------------------------
 
         print(
-            "Fahrstraßen-LEDs blinken..."
+            f"Stelle Fahrstraße "
+            f"{route_name}"
         )
 
-        self.leds.route_blink(
-            name
+        switches = route.get(
+            "switches",
+            {}
         )
 
-        blink_started = time.monotonic()
-
         # -------------------------------------------------
-        # WEICHEN STELLEN
+        # Alle benötigten Weichen stellen
         # -------------------------------------------------
 
-        try:
+        for (
+            switch_name,
+            position
+        ) in switches.items():
 
-            for (
-                switch_name,
-                position
-            ) in route["switches"].items():
-
-                print(
-                    f"Weiche stellen: "
-                    f"{switch_name} -> "
-                    f"{position}"
-                )
+            try:
 
                 self.switches.command(
                     switch_name,
                     position
                 )
 
-        except Exception as error:
+            except Exception as exc:
 
-            print()
-            print(
-                "FEHLER beim Stellen "
-                "der Weichen:"
-            )
-            print(error)
-
-            self.leds.stop_blink()
-
-            self.leds.route_off(
-                name
-            )
-
-            self.requested_route = None
-
-            return False
-
-        # -------------------------------------------------
-        # AUF RÜCKMELDUNG WARTEN
-        # -------------------------------------------------
-
-        print()
-        print(
-            "Warte auf "
-            "Weichen-Rückmeldungen..."
-        )
-
-        deadline = (
-            time.monotonic()
-            + ROUTE_TIMEOUT
-        )
-
-        # -------------------------------------------------
-        # PRÜFSCHLEIFE
-        # -------------------------------------------------
-
-        while time.monotonic() < deadline:
-
-            if self.route_is_correct(
-                route
-            ):
-
-                # -----------------------------------------
-                # Mindest-Blinkzeit
-                # -----------------------------------------
-
-                elapsed = (
-                    time.monotonic()
-                    - blink_started
-                )
-
-                if (
-                    elapsed
-                    < ROUTE_MIN_BLINK_TIME
-                ):
-
-                    remaining = (
-                        ROUTE_MIN_BLINK_TIME
-                        - elapsed
-                    )
-
-                    time.sleep(
-                        remaining
-                    )
-
-                # -----------------------------------------
-                # Fahrstraße aktivieren
-                # -----------------------------------------
-
-                self.requested_route = None
-
-                self.active_route = name
-
-                self.leds.route_on(
-                    name
-                )
-
-                print()
-                print("==============================")
                 print(
-                    f"FAHRSTRASSE AKTIV: {name}"
+                    f"Fehler beim Stellen "
+                    f"von {switch_name}: "
+                    f"{exc}"
                 )
-                print("==============================")
-                print()
 
-                return True
+                return
 
-            time.sleep(
-                0.05
-            )
+        # -------------------------------------------------
+        # Aktive Fahrstraße merken
+        # -------------------------------------------------
 
-        # =================================================
-        # TIMEOUT
-        # =================================================
+        self.active_routes[
+            route_name
+        ] = {
+            "start": start,
+            "target": target,
+            "switches": dict(
+                switches
+            ),
+            "created": time.monotonic(),
+        }
 
-        print()
+        # -------------------------------------------------
+        # LED-Anzeige erst nach Bestätigung
+        # -------------------------------------------------
+
         print(
-            "FEHLER: Die Weichen wurden "
-            "nicht innerhalb des Timeouts "
-            "korrekt zurückgemeldet."
+            "Warte auf Bestätigung "
+            "der Weichen..."
         )
 
-        print()
-        print(
-            "Aktueller Weichenstatus:"
-        )
-
-        self.switches_status()
-
-        self.leds.stop_blink()
-
-        self.leds.route_off(
-            name
-        )
-
-        self.requested_route = None
-
-        return False
+        threading.Thread(
+            target=self.wait_for_route,
+            args=(route_name,),
+            daemon=True,
+        ).start()
 
     # =====================================================
-    # FAHRSTRASSE PRÜFEN
+    # AUF WEICHENBESTÄTIGUNG WARTEN
     # =====================================================
 
-    def route_is_correct(
+    def wait_for_route(
         self,
-        route
+        route_name,
     ):
 
-        for (
-            switch_name,
-            expected_position
-        ) in route["switches"].items():
-
-            current_position = (
-                self.switches.states.get(
-                    switch_name
-                )
-            )
-
-            print(
-                f"Prüfe {switch_name}: "
-                f"erwartet={expected_position}, "
-                f"aktuell={current_position}"
-            )
-
-            if current_position is None:
-
-                return False
-
-            if (
-                current_position
-                != expected_position
-            ):
-
-                return False
-
-        return True
-
-    # =====================================================
-    # FAHRSTRASSE AUFLÖSEN
-    # =====================================================
-
-    def release_route(self):
-
-        if not self.active_route:
-
-            print(
-                "Keine Fahrstraße aktiv."
-            )
-
-            return
-
-        route_name = self.active_route
-
-        print()
-        print(
-            f"Fahrstraße aufgelöst: "
-            f"{route_name}"
-        )
-
-        # -------------------------------------------------
-        # Status löschen
-        # -------------------------------------------------
-
-        self.active_route = None
-
-        self.requested_route = None
-
-        self.selected_start = None
-
-        # -------------------------------------------------
-        # Blinkmodus sicher beenden
-        # -------------------------------------------------
-
-        self.leds.stop_blink()
-
-        # -------------------------------------------------
-        # Fahrstraßen-LEDs ausschalten
-        #
-        # Weichen-LEDs bleiben erhalten.
-        # -------------------------------------------------
-
-        self.leds.route_off(
+        route_data = self.active_routes.get(
             route_name
         )
 
-        print(
-            "Fahrstraßen-LEDs ausgeschaltet."
-        )
-
-    # =====================================================
-    # WEICHENSTATUS
-    # =====================================================
-
-    def switches_status(self):
-
-        if not self.switches.states:
-
-            print(
-                "  Keine Weichenstellungen bekannt."
-            )
-
+        if route_data is None:
             return
 
-        for (
-            name,
-            position
-        ) in self.switches.states.items():
+        required = route_data[
+            "switches"
+        ]
 
-            print(
-                f"  {name}: {position}"
+        start_time = time.monotonic()
+
+        # -------------------------------------------------
+        # Warten
+        # -------------------------------------------------
+
+        while self.running:
+
+            all_correct = True
+
+            for (
+                switch_name,
+                position
+            ) in required.items():
+
+                if not self.switches.is_position(
+                    switch_name,
+                    position
+                ):
+
+                    all_correct = False
+
+                    break
+
+            if all_correct:
+
+                print(
+                    f"Fahrstraße "
+                    f"{route_name} "
+                    f"bestätigt."
+                )
+
+                self.leds.set_route(
+                    route_name
+                )
+
+                return
+
+            # Timeout
+            if (
+                time.monotonic()
+                - start_time
+                > ROUTE_TIMEOUT
+            ):
+
+                print(
+                    f"Timeout bei "
+                    f"Fahrstraße "
+                    f"{route_name}"
+                )
+
+                self.resolve_route(
+                    route_name
+                )
+
+                return
+
+            time.sleep(0.05)
+
+    # =====================================================
+    # Z21-RÜCKMELDUNG
+    # =====================================================
+
+    def on_z21_update(
+        self,
+        address,
+        position,
+    ):
+
+        # -------------------------------------------------
+        # Weichencontroller aktualisieren
+        # -------------------------------------------------
+
+        switch_name = self.switches.update(
+            address,
+            position
+        )
+
+        if switch_name is None:
+            return
+
+        logical_position = (
+            self.switches.get_position(
+                switch_name
+            )
+        )
+
+        # -------------------------------------------------
+        # Weichen-LED aktualisieren
+        # -------------------------------------------------
+
+        if logical_position is not None:
+
+            self.leds.set_switch_state(
+                switch_name,
+                logical_position
+            )
+
+        # -------------------------------------------------
+        # Aktive Fahrstraßen überwachen
+        # -------------------------------------------------
+
+        self.check_active_routes()
+
+    # =====================================================
+    # AKTIVE FAHRSTRASSEN PRÜFEN
+    # =====================================================
+
+    def check_active_routes(self):
+
+        for route_name in list(
+            self.active_routes.keys()
+        ):
+
+            route_data = (
+                self.active_routes.get(
+                    route_name
+                )
+            )
+
+            if route_data is None:
+                continue
+
+            required = route_data[
+                "switches"
+            ]
+
+            for (
+                switch_name,
+                required_position
+            ) in required.items():
+
+                actual_position = (
+                    self.switches.get_position(
+                        switch_name
+                    )
+                )
+
+                # -------------------------------------------------
+                # Noch keine bestätigte Stellung
+                # -------------------------------------------------
+
+                if actual_position is None:
+
+                    continue
+
+                # -------------------------------------------------
+                # Falsche Stellung
+                # -------------------------------------------------
+
+                if (
+                    actual_position
+                    != required_position
+                ):
+
+                    print()
+                    print(
+                        "!!! FAHRSTRASSENFEHLER !!!"
+                    )
+
+                    print(
+                        f"Fahrstraße: "
+                        f"{route_name}"
+                    )
+
+                    print(
+                        f"Weiche: "
+                        f"{switch_name}"
+                    )
+
+                    print(
+                        f"Erwartet: "
+                        f"{required_position}"
+                    )
+
+                    print(
+                        f"Tatsächlich: "
+                        f"{actual_position}"
+                    )
+
+                    # -------------------------------------------------
+                    # 5x rot blinken
+                    # -------------------------------------------------
+
+                    self.leds.flash_route_red(
+                        route_name,
+                        count=5
+                    )
+
+                    # -------------------------------------------------
+                    # Fahrstraße auflösen
+                    # -------------------------------------------------
+
+                    self.resolve_route(
+                        route_name
+                    )
+
+                    break
+
+    # =====================================================
+    # EINE FAHRSTRASSE AUFLÖSEN
+    # =====================================================
+
+    def resolve_route(
+        self,
+        route_name,
+    ):
+
+        if route_name not in self.active_routes:
+            return
+
+        print(
+            f"Fahrstraße "
+            f"{route_name} "
+            f"wird aufgelöst."
+        )
+
+        self.leds.clear_route(
+            route_name
+        )
+
+        del self.active_routes[
+            route_name
+        ]
+
+    # =====================================================
+    # ALLE FAHRSTRASSEN AUFLÖSEN
+    # =====================================================
+
+    def resolve_all_routes(self):
+
+        print()
+        print(
+            "Alle Fahrstraßen werden "
+            "aufgelöst."
+        )
+
+        for route_name in list(
+            self.active_routes.keys()
+        ):
+
+            self.resolve_route(
+                route_name
             )
 
     # =====================================================
-    # STATUS
-    # =====================================================
-
-    def status(self):
-
-        print()
-        print("==============================")
-        print("STATUS")
-        print("==============================")
-
-        print()
-        print("Weichen:")
-
-        self.switches_status()
-
-        print()
-        print(
-            f"Startauswahl: "
-            f"{self.selected_start}"
-        )
-
-        print(
-            f"Angefordert: "
-            f"{self.requested_route}"
-        )
-
-        print(
-            f"Aktiv: "
-            f"{self.active_route}"
-        )
-
-        print(
-            f"Fehleranzeige: "
-            f"{self.route_error_active}"
-        )
-
-        print()
-
-    # =====================================================
-    # BEENDEN
+    # STOP
     # =====================================================
 
     def stop(self):
+
+        self.running = False
 
         print()
         print(
             "Stellwerk wird beendet..."
         )
 
-        if self.buttons:
+        self.resolve_all_routes()
 
-            self.buttons.close()
+        for button in self.buttons.values():
+
+            try:
+                button.close()
+            except Exception:
+                pass
 
         self.z21.stop()
 
-        self.leds.shutdown()
+        self.leds.stop()
 
-        print(
-            "Stellwerk beendet."
-        )
+    # =====================================================
+    # HAUPTSCHLEIFE
+    # =====================================================
 
+    def run(self):
 
-# =========================================================
-# KONSOLENSTEUERUNG
-# =========================================================
-
-def console_mode(
-    stellwerk
-):
-
-    print(
-        "Konsolenbefehle:"
-    )
-
-    print(
-        "  route <start> <ziel>"
-    )
-
-    print(
-        "  start <name>"
-    )
-
-    print(
-        "  ledtest"
-    )
-
-    print(
-        "  status"
-    )
-
-    print(
-        "  release"
-    )
-
-    print(
-        "  quit"
-    )
-
-    print()
-
-    while True:
+        self.start()
 
         try:
 
-            command = input(
-                "stellwerk> "
-            ).strip()
+            while self.running:
 
-        except EOFError:
+                time.sleep(0.5)
 
-            return False
+        except KeyboardInterrupt:
 
-        if not command:
-
-            continue
-
-        parts = command.split()
-
-        # =================================================
-        # LEDTEST
-        # =================================================
-
-        if command == "ledtest":
-
+            print()
             print(
-                "LED-Test: "
-                "alle LEDs werden gelb eingeschaltet."
+                "Strg+C erkannt."
             )
 
-            stellwerk.leds.stop_blink()
+        finally:
 
-            stellwerk.leds.all_off()
-
-            for led in range(
-                1,
-                LED_COUNT + 1
-            ):
-
-                stellwerk.leds.set(
-                    led,
-                    255,
-                    180,
-                    0
-                )
-
-            stellwerk.leds.show()
-
-            print(
-                f"Alle {LED_COUNT} LEDs "
-                "sollten jetzt gelb leuchten."
-            )
-
-            continue
-
-        # =================================================
-        # STATUS
-        # =================================================
-
-        if command == "status":
-
-            stellwerk.status()
-
-            continue
-
-        # =================================================
-        # RELEASE
-        # =================================================
-
-        if command == "release":
-
-            stellwerk.release_route()
-
-            continue
-
-        # =================================================
-        # QUIT
-        # =================================================
-
-        if command == "quit":
-
-            return False
-
-        # =================================================
-        # START
-        # =================================================
-
-        if (
-            len(parts) == 2
-            and parts[0] == "start"
-        ):
-
-            stellwerk.selected_start = (
-                parts[1]
-            )
-
-            print(
-                f"Start gewählt: "
-                f"{parts[1]}"
-            )
-
-            continue
-
-        # =================================================
-        # ROUTE
-        # =================================================
-
-        if (
-            len(parts) == 3
-            and parts[0] == "route"
-        ):
-
-            stellwerk.request_route(
-                parts[1],
-                parts[2]
-            )
-
-            continue
-
-        # =================================================
-        # UNBEKANNTER BEFEHL
-        # =================================================
-
-        print(
-            "Unbekannter Befehl."
-        )
-
-        print()
-        print(
-            "Mögliche Befehle:"
-        )
-
-        print(
-            "  route <start> <ziel>"
-        )
-
-        print(
-            "  start <name>"
-        )
-
-        print(
-            "  ledtest"
-        )
-
-        print(
-            "  status"
-        )
-
-        print(
-            "  release"
-        )
-
-        print(
-            "  quit"
-        )
-
-        print()
-
-
-# =========================================================
-# FAHRSTRASSE ANHAND DES NAMENS SUCHEN
-# =========================================================
-
-def find_route_by_name(
-    route_name
-):
-
-    from config import ROUTES
-
-    route = ROUTES.get(
-        route_name
-    )
-
-    if route is None:
-
-        return None, None
-
-    return route_name, route
+            self.stop()
 
 
 # =========================================================
@@ -1115,40 +646,8 @@ def main():
 
     stellwerk = Stellwerk()
 
-    try:
+    stellwerk.run()
 
-        stellwerk.start()
-
-        console_mode(
-            stellwerk
-        )
-
-    except KeyboardInterrupt:
-
-        print()
-        print(
-            "Abbruch durch Benutzer."
-        )
-
-    except Exception as error:
-
-        print()
-        print("==============================")
-        print("FEHLER")
-        print("==============================")
-        print(error)
-        print()
-
-        raise
-
-    finally:
-
-        stellwerk.stop()
-
-
-# =========================================================
-# PROGRAMMSTART
-# =========================================================
 
 if __name__ == "__main__":
 
