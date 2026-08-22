@@ -7,29 +7,25 @@ class SwitchController:
 
         self.z21 = z21
 
-        # Aktuell bekannte logische Stellung
+        # Logischer Zustand der Weichen
         #
         # Beispiel:
-        #
         # {
         #     "sw46": "straight",
         #     "sw42": "left",
         # }
-        #
         self.states = {}
 
-        # Zuordnung:
-        #
         # Z21-Adresse -> logischer Weichenname
-        #
-        # Wird vor allem für die Rückmeldungen
-        # der Z21 benötigt.
         self.address_map = {}
+
+        # Zwischenzustände der Mehrfachweichen
+        self.combination_states = {}
 
         self._build_address_map()
 
     # =====================================================
-    # ADRESSZUORDNUNG AUFBAUEN
+    # ADRESSZUORDNUNG
     # =====================================================
 
     def _build_address_map(self):
@@ -40,42 +36,23 @@ class SwitchController:
 
             switch_type = config.get("type")
 
-            # -------------------------------------------------
-            # NORMALE WEICHE
-            # -------------------------------------------------
-
             if switch_type == "turnout":
 
                 address = config["address"]
 
                 self.address_map[address] = name
 
-            # -------------------------------------------------
-            # DREIWEGWEICHE
-            # -------------------------------------------------
+            elif switch_type in (
+                "three_way",
+                "double_slip",
+            ):
 
-            elif switch_type == "three_way":
-
-                addresses = config["addresses"]
-
-                for address in addresses:
-
-                    self.address_map[address] = name
-
-            # -------------------------------------------------
-            # DKW
-            # -------------------------------------------------
-
-            elif switch_type == "double_slip":
-
-                addresses = config["addresses"]
-
-                for address in addresses:
+                for address in config["addresses"]:
 
                     self.address_map[address] = name
 
     # =====================================================
-    # RÜCKMELDUNG VON DER Z21 VERARBEITEN
+    # Z21-RÜCKMELDUNG
     # =====================================================
 
     def update(
@@ -83,13 +60,6 @@ class SwitchController:
         address,
         position
     ):
-        """
-        Verarbeitet eine Z21-Rückmeldung.
-
-        Rückgabe:
-            Name der betroffenen logischen Weiche
-            oder None, wenn die Adresse unbekannt ist.
-        """
 
         if address not in self.address_map:
 
@@ -132,7 +102,7 @@ class SwitchController:
                 f"-> {position}"
             )
 
-            self._update_three_way(
+            self._update_combination_switch(
                 switch_name,
                 address,
                 position
@@ -151,7 +121,7 @@ class SwitchController:
                 f"-> {position}"
             )
 
-            self._update_double_slip(
+            self._update_combination_switch(
                 switch_name,
                 address,
                 position
@@ -162,10 +132,10 @@ class SwitchController:
         return switch_name
 
     # =====================================================
-    # DREIWEGWEICHE AKTUALISIEREN
+    # MEHRFACHWEICHE AKTUALISIEREN
     # =====================================================
 
-    def _update_three_way(
+    def _update_combination_switch(
         self,
         switch_name,
         address,
@@ -177,47 +147,56 @@ class SwitchController:
         addresses = config["addresses"]
 
         # -------------------------------------------------
-        # Aktuelle Zustände der beiden Decoderadressen
+        # Zustand der beiden Z21-Adressen speichern
         # -------------------------------------------------
 
-        current = getattr(
-            self,
-            "_three_way_states",
-            {}
-        )
+        if switch_name not in self.combination_states:
 
-        if switch_name not in current:
+            self.combination_states[switch_name] = {}
 
-            current[switch_name] = {}
+        state = self.combination_states[
+            switch_name
+        ]
 
-        current[switch_name][address] = position
-
-        self._three_way_states = current
-
-        state = current[switch_name]
-
-        address_25 = addresses[0]
-        address_26 = addresses[1]
-
-        pos25 = state.get(address_25)
-        pos26 = state.get(address_26)
+        state[address] = position
 
         # -------------------------------------------------
-        # Noch nicht beide Rückmeldungen bekannt
+        # Falls Z21 bereits einen Zustand kennt,
+        # übernehmen wir diesen ebenfalls.
+        #
+        # Das ist besonders beim Programmstart hilfreich.
         # -------------------------------------------------
 
-        if pos25 is None or pos26 is None:
+        for addr in addresses:
 
-            print(
-                f"Z21: {switch_name}: "
-                f"warte auf beide Adressen "
-                f"({address_25}, {address_26})"
-            )
+            if addr not in state:
 
-            return
+                z21_state = self.z21.get_state(
+                    addr
+                )
+
+                if z21_state is not None:
+
+                    state[addr] = z21_state
 
         # -------------------------------------------------
-        # Erwartete Kombinationen aus config.py
+        # Sind beide Adressen bekannt?
+        # -------------------------------------------------
+
+        for addr in addresses:
+
+            if addr not in state:
+
+                print(
+                    f"Z21: {switch_name}: "
+                    f"warte auf Rückmeldung "
+                    f"für Adresse {addr}"
+                )
+
+                return
+
+        # -------------------------------------------------
+        # Kombination auswerten
         # -------------------------------------------------
 
         positions = config.get(
@@ -232,20 +211,31 @@ class SwitchController:
             requirements
         ) in positions.items():
 
-            if (
-                state.get(address_25)
-                == requirements.get(address_25)
-                and
-                state.get(address_26)
-                == requirements.get(address_26)
-            ):
+            matches = True
 
-                detected_position = logical_position
+            for (
+                required_address,
+                required_position
+            ) in requirements.items():
+
+                if (
+                    state.get(required_address)
+                    != required_position
+                ):
+
+                    matches = False
+                    break
+
+            if matches:
+
+                detected_position = (
+                    logical_position
+                )
 
                 break
 
         # -------------------------------------------------
-        # Stellung erkannt
+        # Gültige Stellung erkannt
         # -------------------------------------------------
 
         if detected_position is not None:
@@ -268,112 +258,19 @@ class SwitchController:
             return
 
         # -------------------------------------------------
-        # Kombination unbekannt
+        # Ungültige Kombination
         # -------------------------------------------------
 
         print(
             f"Z21: {switch_name}: "
-            f"unbekannte Kombination:"
+            f"unbekannte Kombination"
         )
 
-        print(
-            f"     Adresse {address_25}: "
-            f"{pos25}"
-        )
-
-        print(
-            f"     Adresse {address_26}: "
-            f"{pos26}"
-        )
-
-    # =====================================================
-    # DKW
-    # =====================================================
-
-    def _update_double_slip(
-        self,
-        switch_name,
-        address,
-        position
-    ):
-
-        config = SWITCHES[switch_name]
-
-        addresses = config["addresses"]
-
-        current = getattr(
-            self,
-            "_double_slip_states",
-            {}
-        )
-
-        if switch_name not in current:
-
-            current[switch_name] = {}
-
-        current[switch_name][address] = position
-
-        self._double_slip_states = current
-
-        state = current[switch_name]
-
-        # -------------------------------------------------
-        # Noch nicht beide Adressen bekannt
-        # -------------------------------------------------
-
-        if (
-            addresses[0] not in state
-            or
-            addresses[1] not in state
-        ):
-
-            return
-
-        positions = config.get(
-            "positions",
-            {}
-        )
-
-        detected_position = None
-
-        for (
-            logical_position,
-            requirements
-        ) in positions.items():
-
-            match = True
-
-            for addr, required in requirements.items():
-
-                if state.get(addr) != required:
-
-                    match = False
-                    break
-
-            if match:
-
-                detected_position = (
-                    logical_position
-                )
-
-                break
-
-        if detected_position is not None:
-
-            self.states[switch_name] = (
-                detected_position
-            )
+        for addr in addresses:
 
             print(
-                f"Z21: {switch_name} "
-                f"-> {detected_position}"
-            )
-
-        else:
-
-            print(
-                f"Z21: {switch_name}: "
-                f"unbekannte DKW-Kombination"
+                f"     Adresse {addr}: "
+                f"{state.get(addr)}"
             )
 
     # =====================================================
@@ -385,21 +282,6 @@ class SwitchController:
         switch_name,
         position
     ):
-        """
-        Stellt eine logische Weiche.
-
-        Beispiele:
-
-            command("sw46", "straight")
-
-            command("sw46", "turnout")
-
-            command("sw42", "left")
-
-            command("sw42", "straight")
-
-            command("sw42", "right")
-        """
 
         if switch_name not in SWITCHES:
 
@@ -420,7 +302,7 @@ class SwitchController:
 
             if position not in (
                 "straight",
-                "turnout"
+                "turnout",
             ):
 
                 raise ValueError(
@@ -504,6 +386,7 @@ class SwitchController:
 
         requirements = positions[position]
 
+        print()
         print(
             f"Dreiwegweiche "
             f"{switch_name} -> "
@@ -529,11 +412,15 @@ class SwitchController:
                 target_position
             )
 
+        print()
+
         # -------------------------------------------------
-        # Wir setzen die logische Stellung NICHT sofort.
+        # Wichtig:
         #
-        # Sie wird erst durch die Z21-Rückmeldung
-        # bestätigt.
+        # self.states wird hier NICHT direkt gesetzt.
+        #
+        # Erst die Z21-Rückmeldung bestätigt die
+        # tatsächliche Stellung.
         # -------------------------------------------------
 
     # =====================================================
@@ -597,7 +484,7 @@ class SwitchController:
         )
 
     # =====================================================
-    # PRÜFEN, OB EINE STELLUNG ERREICHT IST
+    # STELLUNG PRÜFEN
     # =====================================================
 
     def is_position(
@@ -614,7 +501,7 @@ class SwitchController:
         )
 
     # =====================================================
-    # ALLE WEICHENSTELLUNGEN
+    # ALLE STELLUNGEN
     # =====================================================
 
     def get_states(self):
