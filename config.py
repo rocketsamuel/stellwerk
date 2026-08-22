@@ -34,26 +34,32 @@ BUTTON_PINS = {
 # ---------------------------------------------------------
 
 SWITCHES = {
-   "sw46": {
-     "type": "turnout",
-     "address": 5,
-   },
+    "sw46": {
+        "type": "turnout",
+        "address": 5,
+    },
 
-    
-    # DKW:
-    #
-    # "DKW1": {
-    #     "type": "double_slip",
-    #     "addresses": [10, 11],
-    #
-    #     "positions": {
-    #         "straight": {
-    #             10: "straight",
-    #             11: "straight",
-    #         },
-    #         ...
-    #     },
-    # },
+    "sw42": {
+        "type": "three_way",
+        "addresses": [25, 26],
+
+        "positions": {
+            "straight": {
+                25: "straight",
+                26: "straight",
+            },
+
+            "right": {
+                25: "turnout",
+                26: "straight",
+            },
+
+            "left": {
+                25: "straight",
+                26: "turnout",
+            },
+        },
+    },
 }
 
 # ---------------------------------------------------------
@@ -65,7 +71,8 @@ ROUTES = {
      "start": "ABS1",
      "target": "HBF4",
      "switches": {
-         "sw46": "turnout",
+        "sw46": "turnout",
+        "sw42": "straight"
      },
   },
   "ABS2_HBF4": {
@@ -73,12 +80,15 @@ ROUTES = {
      "target": "HBF4",
      "switches": {
          "sw46": "straight",
+         "sw42": "straight"
      },
   },
     "ABS3_HBF4": {
      "start": "ABS3",
      "target": "HBF4",
-     "switches": {},
+     "switches": {
+         "sw42": "left"
+     },
   },
 }
 
@@ -88,10 +98,15 @@ ROUTES = {
 # ---------------------------------------------------------
 
 SWITCH_LEDS = {
-  "sw46": {
-    "straight": 4,
-    "turnout": 3
-  }
+    "sw46": {
+        "straight": 4,
+        "turnout": 3,
+    },
+    "sw42": {
+        "left": 12,
+        "straight": 11,
+        "right": 10,
+    },
 }
 
 ROUTE_LEDS = {
