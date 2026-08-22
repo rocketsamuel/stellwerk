@@ -89,7 +89,10 @@ class SwitchController:
                 f"-> {position}"
             )
 
-            return switch_name
+            return (
+                switch_name,
+                position
+            )
 
         # -------------------------------------------------
         # DREIWEGWEICHE
@@ -102,13 +105,26 @@ class SwitchController:
                 f"-> {position}"
             )
 
-            self._update_combination_switch(
-                switch_name,
-                address,
-                position
+            logical_position = (
+                self._update_combination_switch(
+                    switch_name,
+                    address,
+                    position
+                )
             )
 
-            return switch_name
+            # -------------------------------------------------
+            # Noch keine vollständige Kombination
+            # -------------------------------------------------
+
+            if logical_position is None:
+
+                return None
+
+            return (
+                switch_name,
+                logical_position
+            )
 
         # -------------------------------------------------
         # DKW
@@ -121,15 +137,24 @@ class SwitchController:
                 f"-> {position}"
             )
 
-            self._update_combination_switch(
-                switch_name,
-                address,
-                position
+            logical_position = (
+                self._update_combination_switch(
+                    switch_name,
+                    address,
+                    position
+                )
             )
 
-            return switch_name
+            if logical_position is None:
 
-        return switch_name
+                return None
+
+            return (
+                switch_name,
+                logical_position
+            )
+
+        return None
 
     # =====================================================
     # MEHRFACHWEICHE AKTUALISIEREN
@@ -193,7 +218,7 @@ class SwitchController:
                     f"für Adresse {addr}"
                 )
 
-                return
+                return None
 
         # -------------------------------------------------
         # Kombination auswerten
@@ -224,6 +249,7 @@ class SwitchController:
                 ):
 
                     matches = False
+
                     break
 
             if matches:
@@ -255,7 +281,7 @@ class SwitchController:
                     f"-> {detected_position}"
                 )
 
-            return
+            return detected_position
 
         # -------------------------------------------------
         # Ungültige Kombination
@@ -272,6 +298,8 @@ class SwitchController:
                 f"     Adresse {addr}: "
                 f"{state.get(addr)}"
             )
+
+        return None
 
     # =====================================================
     # WEICHE STELLEN
