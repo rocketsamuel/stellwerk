@@ -22,10 +22,9 @@ ROUTE_MIN_BLINK_TIME = 1
 BUTTON_PINS = {
     "HBF4": 22,
     "ABS1": 27,
-    "ABS2": None,
-    "ABS3": None,
+    "ABS2": 23,
+    "ABS3": 24,
     "BW": None,
-    "ABS0": None,
     "RELEASE": 17,
 }
 
