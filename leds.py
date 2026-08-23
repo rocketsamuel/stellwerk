@@ -342,6 +342,74 @@ class LEDs:
         )
 
     # ==================================================
+    # FAHRSTRASSE: KURZ ROT AUFBLINKEN
+    #
+    # Wird verwendet, wenn bereits eine andere
+    # Fahrstraße aktiv ist und der Bediener versucht,
+    # eine weitere Fahrstraße einzustellen.
+    #
+    # Die aktive Fahrstraße bleibt anschließend
+    # dauerhaft GELB.
+    # ==================================================
+
+    def route_flash_red(
+        self,
+        route_name
+    ):
+
+        leds = self.route_leds_for(
+            route_name
+        )
+
+        if not leds:
+
+            print(
+                f"Keine LEDs für Fahrstraße "
+                f"{route_name}"
+            )
+
+            return
+
+        print(
+            f"Fahrstraße {route_name}: "
+            f"kurz ROT aufblinken"
+        )
+
+        # ----------------------------------------------
+        # ROT EIN
+        # ----------------------------------------------
+
+        for led in leds:
+
+            self.set(
+                led,
+                *RED
+            )
+
+        self.show()
+
+        # ----------------------------------------------
+        # Kurz warten
+        # ----------------------------------------------
+
+        time.sleep(
+            BLINK_INTERVAL
+        )
+
+        # ----------------------------------------------
+        # Danach wieder GELB
+        # ----------------------------------------------
+
+        for led in leds:
+
+            self.set(
+                led,
+                *YELLOW
+            )
+
+        self.show()
+
+    # ==================================================
     # FAHRSTRASSE: FEHLERANZEIGE
     #
     # 5x rot blinken
@@ -373,11 +441,11 @@ class LEDs:
 
         print(
             f"FEHLERANZEIGE: "
-            f"{route_name} -> 3x ROT"
+            f"{route_name} -> 5x ROT"
         )
 
         # ----------------------------------------------
-        # Dreimal rot blinken
+        # Fünfmal rot blinken
         # ----------------------------------------------
 
         for _ in range(5):

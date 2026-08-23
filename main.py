@@ -374,12 +374,15 @@ class Stellwerk:
 
             print(
                 f"Fahrstraße "
-                f"{self.active_route} ist aktiv."
+                f"{self.active_route} ist bereits aktiv."
             )
 
             print(
-                "Zum Auflösen bitte "
-                "RELEASE drücken."
+                "Neue Fahrstraße nicht möglich."
+            )
+
+            self.leds.route_flash_red(
+                self.active_route
             )
 
             return
