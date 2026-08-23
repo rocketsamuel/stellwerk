@@ -90,6 +90,14 @@ ROUTES = {
          "sw42": "left"
      },
   },
+    "HBF4_ABS1": {
+     "start": "HBF4",
+     "target": "ABS1",
+     "switches": {
+        "sw46": "turnout",
+        "sw42": "straight"
+     },
+  },
 }
 
 
