@@ -32,11 +32,30 @@ class Stellwerk:
         # Fahrstraßenstatus
         # -------------------------------------------------
 
+        # Erster gedrückter Fahrstraßen-Taster
         self.selected_start = None
 
+        # Aktuell angeforderte Fahrstraße
         self.requested_route = None
 
+        # Aktive Fahrstraße
         self.active_route = None
+
+        # -------------------------------------------------
+        # Gedrückte Taster
+        #
+        # Beispiel:
+        #
+        # {
+        #     "ABS1",
+        #     "HBF4"
+        # }
+        #
+        # Damit können wir erkennen, ob zwei Taster
+        # gleichzeitig gedrückt sind.
+        # -------------------------------------------------
+
+        self.pressed_buttons = set()
 
         # -------------------------------------------------
         # Fehleranzeige
@@ -111,8 +130,9 @@ class Stellwerk:
         # -------------------------------------------------
         # Noch keine vollständige logische Stellung
         #
-        # Das kann bei sw42 nach der ersten der beiden
-        # Rückmeldungen passieren.
+        # Wichtig bei Dreiwegweichen:
+        # Erst wenn beide Decoderadressen bekannt sind,
+        # bekommen wir z. B. "left", "straight" oder "right".
         # -------------------------------------------------
 
         if result is None:
@@ -122,10 +142,6 @@ class Stellwerk:
 
         # -------------------------------------------------
         # Weichen-LED aktualisieren
-        #
-        # Wichtig:
-        # Bei sw42 verwenden wir hier die LOGISCHE
-        # Stellung left / straight / right.
         # -------------------------------------------------
 
         self.leds.switch_position(
@@ -295,9 +311,6 @@ class Stellwerk:
 
         # -------------------------------------------------
         # 5× rot blinken
-        #
-        # Deine aktuelle Einstellung:
-        # leds.py -> range(5)
         # -------------------------------------------------
 
         self.leds.route_error(
@@ -313,6 +326,12 @@ class Stellwerk:
         self.requested_route = None
 
         self.selected_start = None
+
+        # -------------------------------------------------
+        # Gedrückte Fahrstraßentaster zurücksetzen
+        # -------------------------------------------------
+
+        self.pressed_buttons.clear()
 
         # -------------------------------------------------
         # route_error() hat die
@@ -335,12 +354,54 @@ class Stellwerk:
 
     def on_button(
         self,
+        name,
+        event
+    ):
+
+        # =================================================
+        # TASTER GEDRÜCKT
+        # =================================================
+
+        if event == "pressed":
+
+            self._button_pressed(
+                name
+            )
+
+            return
+
+        # =================================================
+        # TASTER LOSGELASSEN
+        # =================================================
+
+        if event == "released":
+
+            self._button_released(
+                name
+            )
+
+            return
+
+    # =====================================================
+    # TASTER GEDRÜCKT
+    # =====================================================
+
+    def _button_pressed(
+        self,
         name
     ):
 
         print()
         print(
             f"Taster gedrückt: {name}"
+        )
+
+        # -------------------------------------------------
+        # Taster als gedrückt registrieren
+        # -------------------------------------------------
+
+        self.pressed_buttons.add(
+            name
         )
 
         # -------------------------------------------------
@@ -367,27 +428,6 @@ class Stellwerk:
             return
 
         # -------------------------------------------------
-        # Fahrstraße bereits aktiv
-        # -------------------------------------------------
-
-        if self.active_route:
-
-            print(
-                f"Fahrstraße "
-                f"{self.active_route} ist bereits aktiv."
-            )
-
-            print(
-                "Neue Fahrstraße nicht möglich."
-            )
-
-            self.leds.route_flash_red(
-                self.active_route
-            )
-
-            return
-
-        # -------------------------------------------------
         # Fahrstraße wird gerade gestellt
         # -------------------------------------------------
 
@@ -402,33 +442,190 @@ class Stellwerk:
             return
 
         # -------------------------------------------------
-        # Erster Taster = Start
+        # Fahrstraße bereits aktiv
+        # -------------------------------------------------
+
+        if self.active_route:
+
+            print(
+                f"Fahrstraße "
+                f"{self.active_route} "
+                f"ist bereits aktiv."
+            )
+
+            print(
+                "Zum Auflösen bitte "
+                "RELEASE drücken."
+            )
+
+            # -------------------------------------------------
+            # Aktive Fahrstraße kurz rot anzeigen
+            # -------------------------------------------------
+
+            self.leds.route_flash_red(
+                self.active_route
+            )
+
+            return
+
+        # -------------------------------------------------
+        # Nur Fahrstraßen-Taster werden für die
+        # Start-/Zielauswahl verwendet.
+        # -------------------------------------------------
+
+        # -------------------------------------------------
+        # Erster gedrückter Taster
         # -------------------------------------------------
 
         if self.selected_start is None:
 
             self.selected_start = name
 
+            print()
             print(
                 f"Start gewählt: {name}"
+            )
+
+            print(
+                "Warte auf zweiten "
+                "gleichzeitig gedrückten Taster..."
             )
 
             return
 
         # -------------------------------------------------
-        # Zweiter Taster = Ziel
+        # Derselbe Taster nochmals gedrückt
+        # -------------------------------------------------
+
+        if self.selected_start == name:
+
+            print(
+                f"{name} ist bereits "
+                f"als Start ausgewählt."
+            )
+
+            return
+
+        # -------------------------------------------------
+        # Zweiter Taster
+        #
+        # Da der erste Taster weiterhin in
+        # pressed_buttons enthalten sein muss,
+        # erfüllen wir hier die gewünschte
+        # Gleichzeitigkeit.
+        # -------------------------------------------------
+
+        if self.selected_start not in self.pressed_buttons:
+
+            print(
+                "Starttaster wurde "
+                "zwischenzeitlich losgelassen."
+            )
+
+            self.selected_start = name
+
+            print(
+                f"Neuer Start: {name}"
+            )
+
+            return
+
+        # -------------------------------------------------
+        # Fahrstraße aus Start + Ziel bestimmen
         # -------------------------------------------------
 
         start = self.selected_start
 
         target = name
 
+        print()
+        print(
+            "Zwei Taster gleichzeitig gedrückt:"
+        )
+
+        print(
+            f"  Start:  {start}"
+        )
+
+        print(
+            f"  Ziel:   {target}"
+        )
+
+        # -------------------------------------------------
+        # Auswahl löschen
+        # -------------------------------------------------
+
         self.selected_start = None
+
+        # -------------------------------------------------
+        # Fahrstraße anfordern
+        # -------------------------------------------------
 
         self.request_route(
             start,
             target
         )
+
+    # =====================================================
+    # TASTER LOSGELASSEN
+    # =====================================================
+
+    def _button_released(
+        self,
+        name
+    ):
+
+        print()
+        print(
+            f"Taster losgelassen: {name}"
+        )
+
+        # -------------------------------------------------
+        # Aus gedrückten Tastern entfernen
+        # -------------------------------------------------
+
+        self.pressed_buttons.discard(
+            name
+        )
+
+        # -------------------------------------------------
+        # RELEASE
+        #
+        # Hier müssen wir nichts weiter machen.
+        # Die Auflösung erfolgt beim Drücken.
+        # -------------------------------------------------
+
+        if name == "RELEASE":
+
+            return
+
+        # -------------------------------------------------
+        # Wenn eine Fahrstraße gerade angefordert
+        # oder aktiv ist, Auswahl nicht verändern.
+        # -------------------------------------------------
+
+        if (
+            self.requested_route
+            or self.active_route
+        ):
+
+            return
+
+        # -------------------------------------------------
+        # Starttaster losgelassen
+        #
+        # Wenn noch kein zweiter Taster gedrückt wurde,
+        # wird die Auswahl aufgehoben.
+        # -------------------------------------------------
+
+        if self.selected_start == name:
+
+            self.selected_start = None
+
+            print(
+                f"Startauswahl {name} "
+                f"wurde verworfen."
+            )
 
     # =====================================================
     # AUFLÖSE-TASTER
@@ -447,7 +644,8 @@ class Stellwerk:
             )
 
             print(
-                "Auflösetaster momentan ohne Funktion."
+                "Auflösetaster momentan "
+                "ohne Funktion."
             )
 
             return
@@ -798,6 +996,12 @@ class Stellwerk:
         self.selected_start = None
 
         # -------------------------------------------------
+        # Gedrückte Fahrstraßen-Taster löschen
+        # -------------------------------------------------
+
+        self.pressed_buttons.clear()
+
+        # -------------------------------------------------
         # Blinkmodus sicher beenden
         # -------------------------------------------------
 
@@ -860,6 +1064,11 @@ class Stellwerk:
         print(
             f"Startauswahl: "
             f"{self.selected_start}"
+        )
+
+        print(
+            f"Gedrückte Taster: "
+            f"{sorted(self.pressed_buttons)}"
         )
 
         print(
