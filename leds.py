@@ -15,7 +15,7 @@ from config import (
 DEVICE = "/dev/ws281x_pwm"
 
 
-class LEDController:
+class LEDs:
     """
     WS2812B-Ansteuerung über den eigenen RP1-PWM-Kerneltreiber.
 
