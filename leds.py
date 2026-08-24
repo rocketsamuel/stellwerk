@@ -1,626 +1,622 @@
-import os
-import time
 import threading
+import time
+import os
 
 from config import (
     LED_COUNT,
+    LED_PIN,
     LED_BRIGHTNESS,
-    BLINK_INTERVAL,
-    ROUTE_MIN_BLINK_TIME,
     SWITCH_LEDS,
     ROUTE_LEDS,
+    BLINK_INTERVAL,
 )
 
 
-DEVICE = "/dev/ws281x_pwm"
+# ======================================================
+# RP1 WS2812B PWM DEVICE
+# ======================================================
+
+WS281X_DEVICE = "/dev/ws281x_pwm"
+
+
+# ======================================================
+# FARBEN
+# ======================================================
+
+YELLOW = (255, 180, 0)
+RED = (255, 0, 0)
+OFF = (0, 0, 0)
 
 
 class LEDs:
-    """
-    WS2812B-Ansteuerung über den eigenen RP1-PWM-Kerneltreiber.
 
-    Der Kernel-Treiber übernimmt:
-        User memory -> DMA -> RP1 PWM FIFO
+    def __init__(self):
 
-    Dieser Python-Treiber erzeugt deshalb den eigentlichen
-    WS2812B-PWM-Bitstrom.
+        # --------------------------------------------------
+        # Hardware
+        #
+        # Der bisherige PixelStrip wird nicht mehr benutzt.
+        # Der RP1-Treiber übernimmt PWM + DMA.
+        # --------------------------------------------------
 
-    WS2812B:
-        0 -> 100
-        1 -> 110
+        self.fd = None
 
-    Der RP1-PWM-Kanal arbeitet im MSBS-Modus und serialisiert
-    die FIFO-Wörter MSB-first.
-    """
+        self.blink_thread = None
+        self.blink_stop_event = threading.Event()
 
-    def __init__(
-        self,
-        count=LED_COUNT,
-        brightness=LED_BRIGHTNESS,
-        device=DEVICE,
-    ):
-        self.count = count
-        self.brightness = max(0, min(255, brightness))
-        self.device = device
-
+        # Lokaler LED-Puffer.
+        #
+        # Wichtig:
+        # set() verändert nur diesen Puffer.
+        # show() überträgt den kompletten Puffer an den
+        # Kernel-Treiber.
+        #
+        # WS2812B arbeitet mit GRB-Reihenfolge.
         self.pixels = [
-            (0, 0, 0)
-            for _ in range(self.count)
+            OFF
+            for _ in range(LED_COUNT)
         ]
 
-        self.lock = threading.RLock()
-
-        self._fd = None
-
-        # Blink-Verwaltung
-        self._blink_thread = None
-        self._blink_stop = threading.Event()
-        self._blink_callback = None
-
-    # =========================================================
-    # DEVICE
-    # =========================================================
-
-    def begin(self):
-        """
-        Öffnet den RP1-PWM-Treiber.
-        """
-
-        with self.lock:
-
-            if self._fd is not None:
-                return
-
-            print(
-                f"Öffne {self.device} ..."
-            )
-
-            self._fd = os.open(
-                self.device,
-                os.O_WRONLY
-            )
-
-            print(
-                "WS281x PWM Device geöffnet."
-            )
-
-    def close(self):
-        """
-        Stoppt Blinkbetrieb, schaltet LEDs aus
-        und schließt das Device.
-        """
-
-        self.stop_blink()
-
-        with self.lock:
-
-            if self._fd is None:
-                return
-
-            try:
-                self.clear()
-            finally:
-                os.close(self._fd)
-                self._fd = None
-
-    # =========================================================
-    # BRIGHTNESS
-    # =========================================================
-
-    def set_brightness(self, brightness):
-        self.brightness = max(
-            0,
-            min(255, int(brightness))
-        )
-
-    def _apply_brightness(self, value):
-        return (
-            value * self.brightness
-        ) // 255
-
-    # =========================================================
-    # PIXEL
-    # =========================================================
-
-    def set_pixel(
-        self,
-        index,
-        r,
-        g,
-        b,
-    ):
-        if not 0 <= index < self.count:
-            raise IndexError(
-                f"LED-Index außerhalb des Bereichs: "
-                f"{index}"
-            )
-
-        r = max(0, min(255, int(r)))
-        g = max(0, min(255, int(g)))
-        b = max(0, min(255, int(b)))
-
-        with self.lock:
-
-            self.pixels[index] = (
-                self._apply_brightness(r),
-                self._apply_brightness(g),
-                self._apply_brightness(b),
-            )
-
-    def set_pixel_rgb(
-        self,
-        index,
-        rgb,
-    ):
-        r, g, b = rgb
-
-        self.set_pixel(
-            index,
-            r,
-            g,
-            b,
-        )
-
-    def get_pixel(self, index):
-        return self.pixels[index]
-
-    def clear_pixels(self):
-        with self.lock:
-            for i in range(self.count):
-                self.pixels[i] = (
-                    0,
-                    0,
-                    0,
-                )
-
-    # =========================================================
-    # WS2812B ENCODING
-    # =========================================================
+    # ==================================================
+    # WS2812B DATEN ERZEUGEN
+    # ==================================================
 
     @staticmethod
-    def _encode_bit(bit):
+    def _encode_byte(value):
+
         """
+        Ein Byte in 8 WS2812-Bit-Zellen umwandeln.
+
         WS2812B:
+            0 = kurze HIGH-Zeit
+            1 = längere HIGH-Zeit
 
-            0 = 100
-            1 = 110
+        Der RP1-Treiber arbeitet mit 32-Bit-Worten.
+        Wir erzeugen deshalb pro WS2812-Bit ein
+        32-Bit-Wort.
+
+        Das tatsächliche Timing wird vom PWM-Treiber
+        erzeugt; die Werte stellen die Duty-Cycles dar.
         """
 
-        if bit:
-            return 0b110
+        value = max(
+            0,
+            min(255, int(value))
+        )
 
-        return 0b100
-
-    @classmethod
-    def _encode_byte(cls, value):
-        """
-        Kodiert ein Byte in 24 PWM-Bits.
-        """
-
-        result = 0
+        result = bytearray()
 
         for bit in range(7, -1, -1):
 
-            result <<= 3
+            if value & (1 << bit):
 
-            result |= cls._encode_bit(
-                (value >> bit) & 1
+                # logical 1
+                duty = 0x00000018
+
+            else:
+
+                # logical 0
+                duty = 0x0000000C
+
+            result += duty.to_bytes(
+                4,
+                byteorder="little"
             )
 
         return result
 
-    def _build_bitstream(self):
-        """
-        Erzeugt den kompletten WS2812B-Bitstrom.
+    # ==================================================
+    # WS2812B FRAME ERZEUGEN
+    # ==================================================
 
-        WS2812B erwartet GRB, nicht RGB.
-        """
-
-        bits = []
-
-        with self.lock:
-            pixels = list(self.pixels)
-
-        for r, g, b in pixels:
-
-            # WS2812B: G R B
-            for value in (
-                g,
-                r,
-                b,
-            ):
-
-                for bit in range(7, -1, -1):
-
-                    if (value >> bit) & 1:
-                        bits.extend((1, 1, 0))
-                    else:
-                        bits.extend((1, 0, 0))
-
-        return bits
-
-    @staticmethod
-    def _pack_words(bits):
-        """
-        Packt den seriellen PWM-Bitstrom MSB-first
-        in 32-Bit-Wörter.
-
-        Das letzte Wort wird mit 0 aufgefüllt.
-        """
-
-        # Reset-Zeit:
-        #
-        # WS2812B benötigt nach dem Datenstrom eine
-        # LOW-Zeit von > 50 us.
-        #
-        # Bei 800 kHz:
-        #   1 Bit = 1.25 us
-        #
-        # 64 Low-Bits entsprechen 26.7 us bei 2.4 MHz.
-        # Wir verwenden großzügig 128 Low-Bits.
-        bits = list(bits)
-
-        bits.extend(
-            [0] * 128
-        )
-
-        # Auf 32 Bit auffüllen
-        remainder = len(bits) % 32
-
-        if remainder:
-            bits.extend(
-                [0] * (32 - remainder)
-            )
+    def _build_frame(self):
 
         data = bytearray()
 
-        for offset in range(
-            0,
-            len(bits),
-            32,
-        ):
+        for r, g, b in self.pixels:
 
-            word = 0
+            # WS2812B = GRB
+            data += self._encode_byte(g)
+            data += self._encode_byte(r)
+            data += self._encode_byte(b)
 
-            for bit in bits[
-                offset:offset + 32
-            ]:
+        # Reset/Latch:
+        #
+        # WS2812B benötigt nach dem Datenstrom eine
+        # ausreichend lange LOW-Zeit.
+        #
+        # Der PWM/DMA-Treiber beendet den Transfer und
+        # hält die Leitung anschließend LOW.
+        #
+        # Ein zusätzlicher Nullbereich sorgt außerdem
+        # dafür, dass der Datenstrom sauber abgeschlossen
+        # wird.
 
-                word <<= 1
-                word |= bit
-
-            # big endian:
-            # erster serieller Bit landet
-            # im MSB des PWM-FIFO-Wortes.
-            data.extend(
-                word.to_bytes(
-                    4,
-                    byteorder="big"
-                )
-            )
+        data += bytes(128)
 
         return bytes(data)
 
-    def _build_frame(self):
-        bits = self._build_bitstream()
+    # ==================================================
+    # START
+    # ==================================================
 
-        return self._pack_words(bits)
+    def start(self):
 
-    # =========================================================
-    # SHOW
-    # =========================================================
+        print(
+            f"Öffne WS2812B Device: "
+            f"{WS281X_DEVICE}"
+        )
 
-    def show(self):
-        """
-        Überträgt den aktuellen LED-Zustand.
-        """
+        self.fd = os.open(
+            WS281X_DEVICE,
+            os.O_WRONLY
+        )
 
-        with self.lock:
+        self.all_off()
 
-            if self._fd is None:
-                self.begin()
+        print(
+            f"WS2812B gestartet: "
+            f"{LED_COUNT} LEDs, "
+            f"GPIO {LED_PIN}, "
+            f"Helligkeit {LED_BRIGHTNESS}"
+        )
 
-            data = self._build_frame()
+    # ==================================================
+    # EINZELNE LED SETZEN
+    # ==================================================
 
-            total = len(data)
-            written_total = 0
-
-            while written_total < total:
-
-                written = os.write(
-                    self._fd,
-                    data[written_total:]
-                )
-
-                if written <= 0:
-                    raise RuntimeError(
-                        "WS281x PWM: "
-                        "Schreiben fehlgeschlagen"
-                    )
-
-                written_total += written
-
-    # =========================================================
-    # EINFACHE FARBEN
-    # =========================================================
-
-    def set_all(
-        self,
-        r,
-        g,
-        b,
-        show=True,
-    ):
-        for i in range(self.count):
-
-            self.set_pixel(
-                i,
-                r,
-                g,
-                b,
-            )
-
-        if show:
-            self.show()
-
-    def off(self, show=True):
-        self.clear_pixels()
-
-        if show:
-            self.show()
-
-    def clear(self):
-        self.clear_pixels()
-        self.show()
-
-    # =========================================================
-    # LED INDEX
-    # =========================================================
-
-    def set_led(
+    def set(
         self,
         led,
-        rgb,
-        show=True,
+        r,
+        g,
+        b
     ):
-        """
-        Komfortfunktion für das Stellwerk.
-        """
 
-        self.set_pixel_rgb(
-            led,
-            rgb,
-        )
+        if led < 1 or led > LED_COUNT:
 
-        if show:
-            self.show()
-
-    # =========================================================
-    # LED-MAPPING
-    # =========================================================
-
-    def set_leds(
-        self,
-        leds,
-        rgb,
-        show=True,
-    ):
-        """
-        Setzt mehrere LED-Indizes gleichzeitig.
-        """
-
-        for led in leds:
-
-            self.set_pixel_rgb(
-                led,
-                rgb,
+            raise ValueError(
+                f"Ungültige LED-Nummer: {led} "
+                f"(erlaubt: 1-{LED_COUNT})"
             )
 
-        if show:
-            self.show()
+        # Helligkeit wie bisher berücksichtigen.
+        #
+        # LED_BRIGHTNESS:
+        #   0   = aus
+        #   255 = volle Helligkeit
 
-    def set_switch_led(
+        brightness = max(
+            0,
+            min(255, LED_BRIGHTNESS)
+        )
+
+        r = int(r * brightness / 255)
+        g = int(g * brightness / 255)
+        b = int(b * brightness / 255)
+
+        self.pixels[led - 1] = (
+            r,
+            g,
+            b
+        )
+
+    # ==================================================
+    # LED-STRIP AKTUALISIEREN
+    # ==================================================
+
+    def show(self):
+
+        if self.fd is None:
+
+            raise RuntimeError(
+                "WS2812B Device ist nicht gestartet"
+            )
+
+        data = self._build_frame()
+
+        total = 0
+
+        while total < len(data):
+
+            written = os.write(
+                self.fd,
+                data[total:]
+            )
+
+            if written <= 0:
+
+                raise RuntimeError(
+                    "Fehler beim Schreiben "
+                    "auf WS2812B Device"
+                )
+
+            total += written
+
+    # ==================================================
+    # ALLE LEDs AUS
+    # ==================================================
+
+    def all_off(self):
+
+        self.stop_blink()
+
+        for led in range(
+            1,
+            LED_COUNT + 1
+        ):
+
+            self.set(
+                led,
+                *OFF
+            )
+
+        self.show()
+
+    # ==================================================
+    # WEICHENSTELLUNG ANZEIGEN
+    # ==================================================
+
+    def switch_position(
         self,
         switch_name,
-        position,
-        rgb,
-        show=True,
+        position
     ):
-        """
-        Setzt die LED einer Weichenstellung.
-        """
 
-        mapping = SWITCH_LEDS.get(
-            switch_name,
-            {}
+        leds = SWITCH_LEDS.get(
+            switch_name
         )
 
-        led = mapping.get(position)
+        if not leds:
 
-        if led is None:
+            print(
+                f"Keine LED-Zuordnung für "
+                f"Weiche {switch_name}"
+            )
+
             return
 
-        self.set_pixel_rgb(
-            led,
-            rgb,
+        for led in leds.values():
+
+            self.set(
+                led,
+                *OFF
+            )
+
+        led = leds.get(
+            position
         )
 
-        if show:
+        if led is None:
+
+            print(
+                f"Keine LED-Zuordnung für "
+                f"{switch_name} = {position}"
+            )
+
             self.show()
 
-    # =========================================================
-    # ROUTEN
-    # =========================================================
+            return
 
-    def set_route_leds(
+        self.set(
+            led,
+            *YELLOW
+        )
+
+        self.show()
+
+        print(
+            f"Weichen-LED: "
+            f"{switch_name} = {position} "
+            f"-> LED {led}"
+        )
+
+    # ==================================================
+    # FAHRSTRASSEN-LEDs ERMITTELN
+    # ==================================================
+
+    def route_leds_for(
         self,
-        route_name,
-        rgb,
-        show=True,
+        route_name
     ):
-        leds = ROUTE_LEDS.get(
+
+        return ROUTE_LEDS.get(
             route_name,
             []
         )
 
-        for led in leds:
+    # ==================================================
+    # FAHRSTRASSE DAUERHAFT EIN
+    # ==================================================
 
-            self.set_pixel_rgb(
-                led,
-                rgb,
-            )
-
-        if show:
-            self.show()
-
-    def clear_route(
+    def route_on(
         self,
-        route_name,
-        show=True,
+        route_name
     ):
-        self.set_route_leds(
-            route_name,
-            (0, 0, 0),
-            show=show,
-        )
-
-    # =========================================================
-    # BLINKEN
-    # =========================================================
-
-    def start_blink(
-        self,
-        callback,
-        interval=BLINK_INTERVAL,
-    ):
-        """
-        Allgemeiner Blinkmechanismus.
-
-        callback(visible) wird abwechselnd mit
-        True / False aufgerufen.
-        """
 
         self.stop_blink()
 
-        self._blink_stop.clear()
-        self._blink_callback = callback
-
-        def worker():
-
-            visible = True
-
-            while not self._blink_stop.wait(
-                interval
-            ):
-
-                visible = not visible
-
-                try:
-                    callback(visible)
-
-                except Exception as exc:
-
-                    print(
-                        "WS281x Blinkfehler:",
-                        exc
-                    )
-
-                    break
-
-        self._blink_thread = threading.Thread(
-            target=worker,
-            daemon=True,
-        )
-
-        self._blink_thread.start()
-
-    def stop_blink(self):
-        self._blink_stop.set()
-
-        thread = self._blink_thread
-
-        if (
-            thread is not None
-            and thread.is_alive()
-            and thread is not threading.current_thread()
-        ):
-            thread.join(
-                timeout=1.0
-            )
-
-        self._blink_thread = None
-        self._blink_callback = None
-
-    # =========================================================
-    # ROUTE BLINK
-    # =========================================================
-
-    def blink_route(
-        self,
-        route_name,
-        rgb,
-        interval=BLINK_INTERVAL,
-    ):
-        """
-        Lässt die LEDs einer Fahrstraße blinken.
-        """
-
-        leds = list(
-            ROUTE_LEDS.get(
-                route_name,
-                []
-            )
+        leds = self.route_leds_for(
+            route_name
         )
 
         if not leds:
+
+            print(
+                f"Keine LEDs für Fahrstraße "
+                f"{route_name}"
+            )
+
             return
 
-        def update(visible):
+        for led in leds:
 
-            with self.lock:
+            self.set(
+                led,
+                *YELLOW
+            )
 
-                if visible:
+        self.show()
 
-                    for led in leds:
+        print(
+            f"Fahrstraßen-LEDs EIN: "
+            f"{route_name} -> {leds}"
+        )
 
-                        self.set_pixel_rgb(
+    # ==================================================
+    # FAHRSTRASSE BLINKEN
+    # ==================================================
+
+    def route_blink(
+        self,
+        route_name
+    ):
+
+        self.stop_blink()
+
+        leds = self.route_leds_for(
+            route_name
+        )
+
+        if not leds:
+
+            print(
+                f"Keine LEDs für Fahrstraße "
+                f"{route_name}"
+            )
+
+            return
+
+        self.blink_stop_event.clear()
+
+        def blink():
+
+            state = False
+
+            while not self.blink_stop_event.is_set():
+
+                state = not state
+
+                for led in leds:
+
+                    if state:
+
+                        self.set(
                             led,
-                            rgb,
+                            *YELLOW
                         )
 
-                else:
+                    else:
 
-                    for led in leds:
-
-                        self.set_pixel_rgb(
+                        self.set(
                             led,
-                            (0, 0, 0),
+                            *OFF
                         )
+
+                self.show()
+
+                self.blink_stop_event.wait(
+                    BLINK_INTERVAL
+                )
+
+        self.blink_thread = threading.Thread(
+            target=blink,
+            daemon=True
+        )
+
+        self.blink_thread.start()
+
+        print(
+            f"Fahrstraßen-LEDs BLINKEN: "
+            f"{route_name} -> {leds}"
+        )
+
+    # ==================================================
+    # BLINKEN STOPPEN
+    # ==================================================
+
+    def stop_blink(self):
+
+        self.blink_stop_event.set()
+
+        if self.blink_thread:
+
+            self.blink_thread.join(
+                timeout=1
+            )
+
+            self.blink_thread = None
+
+    # ==================================================
+    # FAHRSTRASSE AUS
+    # ==================================================
+
+    def route_off(
+        self,
+        route_name
+    ):
+
+        leds = self.route_leds_for(
+            route_name
+        )
+
+        for led in leds:
+
+            self.set(
+                led,
+                *OFF
+            )
+
+        self.show()
+
+        print(
+            f"Fahrstraßen-LEDs AUS: "
+            f"{route_name}"
+        )
+
+    # ==================================================
+    # FAHRSTRASSE: KURZ ROT AUFBLINKEN
+    # ==================================================
+
+    def route_flash_red(
+        self,
+        route_name
+    ):
+
+        leds = self.route_leds_for(
+            route_name
+        )
+
+        if not leds:
+
+            print(
+                f"Keine LEDs für Fahrstraße "
+                f"{route_name}"
+            )
+
+            return
+
+        print(
+            f"Fahrstraße {route_name}: "
+            f"kurz ROT aufblinken"
+        )
+
+        for led in leds:
+
+            self.set(
+                led,
+                *RED
+            )
+
+        self.show()
+
+        time.sleep(
+            BLINK_INTERVAL
+        )
+
+        for led in leds:
+
+            self.set(
+                led,
+                *YELLOW
+            )
+
+        self.show()
+
+    # ==================================================
+    # FAHRSTRASSE: FEHLERANZEIGE
+    # ==================================================
+
+    def route_error(
+        self,
+        route_name
+    ):
+
+        self.stop_blink()
+
+        leds = self.route_leds_for(
+            route_name
+        )
+
+        if not leds:
+
+            print(
+                f"Keine LEDs für Fahrstraße "
+                f"{route_name}"
+            )
+
+            return
+
+        print(
+            f"FEHLERANZEIGE: "
+            f"{route_name} -> 5x ROT"
+        )
+
+        for _ in range(5):
+
+            for led in leds:
+
+                self.set(
+                    led,
+                    *RED
+                )
 
             self.show()
 
-        update(True)
+            time.sleep(
+                BLINK_INTERVAL
+            )
 
-        self.start_blink(
-            update,
-            interval=interval,
-        )
+            for led in leds:
 
-    # =========================================================
-    # CLEANUP
-    # =========================================================
+                self.set(
+                    led,
+                    *OFF
+                )
+
+            self.show()
+
+            time.sleep(
+                BLINK_INTERVAL
+            )
+
+    # ==================================================
+    # ALLE FAHRSTRASSEN AUS
+    # ==================================================
+
+    def all_routes_off(self):
+
+        self.stop_blink()
+
+        for leds in ROUTE_LEDS.values():
+
+            for led in leds:
+
+                self.set(
+                    led,
+                    *OFF
+                )
+
+        self.show()
+
+    # ==================================================
+    # BEENDEN
+    # ==================================================
 
     def shutdown(self):
-        self.close()
 
-    def __enter__(self):
-        self.begin()
-        return self
+        print(
+            "LEDs werden ausgeschaltet..."
+        )
 
-    def __exit__(
-        self,
-        exc_type,
-        exc_value,
-        traceback,
-    ):
-        self.close()
+        self.stop_blink()
+
+        if self.fd is not None:
+
+            try:
+                self.all_off()
+
+            finally:
+
+                os.close(self.fd)
+                self.fd = None
