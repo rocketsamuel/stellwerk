@@ -1,5 +1,5 @@
+```python
 from gpiozero import Button
-from gpiozero.pins.lgpio import LGPIOFactory
 
 
 class Buttons:
@@ -11,11 +11,8 @@ class Buttons:
     ):
 
         self.callback = callback
-        self.buttons = {}
 
-        # Raspberry Pi 5:
-        # Die normalen GPIOs liegen bei unserem Setup auf gpiochip15.
-        pin_factory = LGPIOFactory(chip=15)
+        self.buttons = {}
 
         # -------------------------------------------------
         # Taster einrichten
@@ -32,8 +29,7 @@ class Buttons:
                 button = Button(
                     pin,
                     pull_up=True,
-                    bounce_time=0.05,
-                    pin_factory=pin_factory
+                    bounce_time=0.05
                 )
 
             except Exception as error:
@@ -108,3 +104,15 @@ class Buttons:
             name,
             "released"
         )
+
+    # =====================================================
+    # TASTER SCHLIESSEN
+    # =====================================================
+
+    def close(self):
+
+        for button in self.buttons.values():
+            button.close()
+
+        self.buttons.clear()
+```
