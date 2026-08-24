@@ -1,3 +1,4 @@
+```python
 import threading
 import time
 import os
@@ -32,13 +33,6 @@ class LEDs:
 
     def __init__(self):
 
-        # --------------------------------------------------
-        # Hardware
-        #
-        # Der bisherige PixelStrip wird nicht mehr benutzt.
-        # Der RP1-Treiber übernimmt PWM + DMA.
-        # --------------------------------------------------
-
         self.fd = None
 
         self.blink_thread = None
@@ -46,37 +40,42 @@ class LEDs:
 
         # Lokaler LED-Puffer.
         #
-        # Wichtig:
-        # set() verändert nur diesen Puffer.
-        # show() überträgt den kompletten Puffer an den
-        # Kernel-Treiber.
+        # set() verändert nur den Puffer.
+        # show() überträgt den kompletten Puffer.
         #
-        # WS2812B arbeitet mit GRB-Reihenfolge.
+        # Die Farbreihenfolge wird erst beim Erzeugen
+        # des Datenstroms auf GRB umgesetzt.
         self.pixels = [
             OFF
             for _ in range(LED_COUNT)
         ]
 
     # ==================================================
-    # WS2812B DATEN ERZEUGEN
+    # WS2812B BYTE ENCODIEREN
     # ==================================================
 
     @staticmethod
     def _encode_byte(value):
 
         """
-        Ein Byte in 8 WS2812-Bit-Zellen umwandeln.
+        Erzeugt aus einem 8-Bit-Wert acht 32-Bit-PWM-Werte.
+
+        PWM-Takt:
+            25.6 MHz
+
+        PWM-Periode:
+            32 Takte = 1.25 us
 
         WS2812B:
-            0 = kurze HIGH-Zeit
-            1 = längere HIGH-Zeit
+            0 -> ca. 0.39 us HIGH
+            1 -> ca. 0.78 us HIGH
 
-        Der RP1-Treiber arbeitet mit 32-Bit-Worten.
-        Wir erzeugen deshalb pro WS2812-Bit ein
-        32-Bit-Wort.
+        Deshalb:
+            0 = 10 Takte
+            1 = 20 Takte
 
-        Das tatsächliche Timing wird vom PWM-Treiber
-        erzeugt; die Werte stellen die Duty-Cycles dar.
+        Der RP1-Treiber sendet jedes 32-Bit-Wort über
+        die PWM-Duty-FIFO.
         """
 
         value = max(
@@ -90,17 +89,18 @@ class LEDs:
 
             if value & (1 << bit):
 
-                # logical 1
-                duty = 0x00000018
+                # WS2812 logical 1
+                duty = 20
 
             else:
 
-                # logical 0
-                duty = 0x0000000C
+                # WS2812 logical 0
+                duty = 10
 
             result += duty.to_bytes(
                 4,
-                byteorder="little"
+                byteorder="little",
+                signed=False
             )
 
         return result
@@ -115,22 +115,23 @@ class LEDs:
 
         for r, g, b in self.pixels:
 
-            # WS2812B = GRB
+            # WS2812B erwartet GRB
             data += self._encode_byte(g)
             data += self._encode_byte(r)
             data += self._encode_byte(b)
 
-        # Reset/Latch:
+        # --------------------------------------------------
+        # RESET / LATCH
         #
-        # WS2812B benötigt nach dem Datenstrom eine
-        # ausreichend lange LOW-Zeit.
+        # 128 Bytes = 32 PWM-Worte
+        # 32 * 1.25 us = 40 us LOW
         #
-        # Der PWM/DMA-Treiber beendet den Transfer und
-        # hält die Leitung anschließend LOW.
+        # Damit ist die erforderliche WS2812B-Latch-Zeit
+        # sicher länger als 50 us.
         #
-        # Ein zusätzlicher Nullbereich sorgt außerdem
-        # dafür, dass der Datenstrom sauber abgeschlossen
-        # wird.
+        # Der letzte DMA-Wert ist 0 und nach dem Ende des
+        # Transfers bleibt die PWM-Leitung LOW.
+        # --------------------------------------------------
 
         data += bytes(128)
 
@@ -180,11 +181,12 @@ class LEDs:
                 f"(erlaubt: 1-{LED_COUNT})"
             )
 
-        # Helligkeit wie bisher berücksichtigen.
+        # --------------------------------------------------
+        # Helligkeit wie bei PixelStrip berücksichtigen.
         #
-        # LED_BRIGHTNESS:
-        #   0   = aus
-        #   255 = volle Helligkeit
+        # 0   = aus
+        # 255 = volle Helligkeit
+        # --------------------------------------------------
 
         brightness = max(
             0,
@@ -276,12 +278,20 @@ class LEDs:
 
             return
 
+        # ----------------------------------------------
+        # Alle LEDs dieser Weiche ausschalten
+        # ----------------------------------------------
+
         for led in leds.values():
 
             self.set(
                 led,
                 *OFF
             )
+
+        # ----------------------------------------------
+        # LED der aktuellen Stellung ermitteln
+        # ----------------------------------------------
 
         led = leds.get(
             position
@@ -297,6 +307,10 @@ class LEDs:
             self.show()
 
             return
+
+        # ----------------------------------------------
+        # Aktuelle Stellung gelb anzeigen
+        # ----------------------------------------------
 
         self.set(
             led,
@@ -476,6 +490,13 @@ class LEDs:
 
     # ==================================================
     # FAHRSTRASSE: KURZ ROT AUFBLINKEN
+    #
+    # Wird verwendet, wenn bereits eine andere
+    # Fahrstraße aktiv ist und der Bediener versucht,
+    # eine weitere Fahrstraße einzustellen.
+    #
+    # Die aktive Fahrstraße bleibt anschließend
+    # dauerhaft GELB.
     # ==================================================
 
     def route_flash_red(
@@ -501,6 +522,10 @@ class LEDs:
             f"kurz ROT aufblinken"
         )
 
+        # ----------------------------------------------
+        # ROT EIN
+        # ----------------------------------------------
+
         for led in leds:
 
             self.set(
@@ -510,9 +535,17 @@ class LEDs:
 
         self.show()
 
+        # ----------------------------------------------
+        # Kurz warten
+        # ----------------------------------------------
+
         time.sleep(
             BLINK_INTERVAL
         )
+
+        # ----------------------------------------------
+        # Danach wieder GELB
+        # ----------------------------------------------
 
         for led in leds:
 
@@ -525,12 +558,18 @@ class LEDs:
 
     # ==================================================
     # FAHRSTRASSE: FEHLERANZEIGE
+    #
+    # 5x rot blinken
     # ==================================================
 
     def route_error(
         self,
         route_name
     ):
+
+        # ----------------------------------------------
+        # Normales Blinken stoppen
+        # ----------------------------------------------
 
         self.stop_blink()
 
@@ -552,8 +591,13 @@ class LEDs:
             f"{route_name} -> 5x ROT"
         )
 
+        # ----------------------------------------------
+        # Fünfmal rot blinken
+        # ----------------------------------------------
+
         for _ in range(5):
 
+            # ROT EIN
             for led in leds:
 
                 self.set(
@@ -567,6 +611,7 @@ class LEDs:
                 BLINK_INTERVAL
             )
 
+            # AUS
             for led in leds:
 
                 self.set(
@@ -614,9 +659,12 @@ class LEDs:
         if self.fd is not None:
 
             try:
+
                 self.all_off()
 
             finally:
 
                 os.close(self.fd)
+
                 self.fd = None
+```
