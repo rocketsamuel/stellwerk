@@ -1160,7 +1160,29 @@ def console_mode(
 
         except EOFError:
 
-            return False
+            # -------------------------------------------------
+            # Kein Terminal vorhanden.
+            #
+            # Das ist z.B. beim Start über systemd der Fall.
+            # Das Stellwerk soll dann trotzdem weiterlaufen
+            # und auf die GPIO-Taster reagieren.
+            # -------------------------------------------------
+
+            print(
+                "Kein Konsoleneingang vorhanden."
+            )
+
+            print(
+                "Stellwerk läuft im Hintergrund."
+            )
+
+            while True:
+
+                try:
+                    time.sleep(3600)
+
+                except KeyboardInterrupt:
+                    raise
 
         if not command:
             continue
