@@ -1,4 +1,3 @@
-```python
 from gpiozero import Button
 
 
@@ -115,4 +114,3 @@ class Buttons:
             button.close()
 
         self.buttons.clear()
-```
