@@ -89,7 +89,7 @@ class LEDs:
 
             self.set(
                 led,
-                *YELLOW
+                *(0, 0, 255)
             )
 
         self.show()
@@ -466,7 +466,6 @@ class LEDs:
     def route_error(
         self,
         route_name
-
     ):
 
         # ----------------------------------------------
