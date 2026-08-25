@@ -634,6 +634,8 @@ class Stellwerk:
                     "Herunterfahren abgebrochen."
                 )
 
+                self.restore_led_display()
+
                 return
 
             self.shutdown_raspberry_pi()
@@ -641,6 +643,40 @@ class Stellwerk:
         finally:
 
             self.shutdown_warning_active = False
+
+    # =====================================================
+    # LED-ANZEIGE WIEDERHERSTELLEN
+    # =====================================================
+
+    def restore_led_display(self):
+
+        print(
+            "LED-Anzeige wird wiederhergestellt."
+        )
+
+        self.leds.all_off()
+
+        for (
+            switch_name,
+            position
+        ) in self.switches.get_states().items():
+
+            self.leds.switch_position(
+                switch_name,
+                position
+            )
+
+        if self.active_route:
+
+            self.leds.route_on(
+                self.active_route
+            )
+
+        elif self.requested_route:
+
+            self.leds.route_blink(
+                self.requested_route
+            )
 
     # =====================================================
     # RASPBERRY PI HERUNTERFAHREN
