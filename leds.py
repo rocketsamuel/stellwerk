@@ -10,6 +10,8 @@ from config import (
     SWITCH_LEDS,
     ROUTE_LEDS,
     BLINK_INTERVAL,
+    STARTUP_LED_ORDER,
+    STARTUP_LED_DELAY,
 )
 
 
@@ -47,6 +49,7 @@ class LEDs:
         self.strip.begin()
 
         self.all_off()
+        self.startup_sequence()
 
         print(
             f"WS2812B gestartet: "
@@ -54,6 +57,31 @@ class LEDs:
             f"GPIO {LED_PIN}, "
             f"Helligkeit {LED_BRIGHTNESS}"
         )
+
+    # ==================================================
+    # STARTSEQUENZ
+    # ==================================================
+
+    def startup_sequence(self):
+
+        print(
+            f"LED-Startsequenz: {STARTUP_LED_ORDER}"
+        )
+
+        for led in STARTUP_LED_ORDER:
+
+            self.set(
+                led,
+                *YELLOW
+            )
+
+            self.show()
+
+            time.sleep(
+                STARTUP_LED_DELAY
+            )
+
+        self.all_off()
 
     # ==================================================
     # EINZELNE LED SETZEN
