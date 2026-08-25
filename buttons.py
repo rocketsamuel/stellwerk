@@ -1,7 +1,5 @@
 from gpiozero import Button
 
-
-
 class Buttons:
 
     def __init__(
