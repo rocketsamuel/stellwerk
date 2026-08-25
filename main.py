@@ -1,4 +1,5 @@
 import subprocess
+import threading
 import time
 
 from config import (
@@ -65,6 +66,11 @@ class Stellwerk:
         # -------------------------------------------------
 
         self.route_error_active = False
+
+        # Wird gesetzt, wenn der Abschalttaster während der
+        # roten Warnsequenz losgelassen wird.
+        self.shutdown_cancelled = threading.Event()
+        self.shutdown_warning_active = False
 
     # =====================================================
     # START
@@ -418,6 +424,9 @@ class Stellwerk:
 
         if name == "SHUTDOWN":
 
+            if not self.shutdown_warning_active:
+                self.shutdown_cancelled.clear()
+
             print(
                 "SHUTDOWN-Taster für 5 Sekunden halten."
             )
@@ -610,11 +619,28 @@ class Stellwerk:
             "SHUTDOWN-Taster 5 Sekunden gehalten."
         )
 
-        self.leds.all_flash_red(
-            SHUTDOWN_FLASH_COUNT
-        )
+        self.shutdown_warning_active = True
 
-        self.shutdown_raspberry_pi()
+        try:
+
+            completed = self.leds.all_flash_red(
+                SHUTDOWN_FLASH_COUNT,
+                self.shutdown_cancelled
+            )
+
+            if not completed:
+
+                print(
+                    "Herunterfahren abgebrochen."
+                )
+
+                return
+
+            self.shutdown_raspberry_pi()
+
+        finally:
+
+            self.shutdown_warning_active = False
 
     # =====================================================
     # RASPBERRY PI HERUNTERFAHREN
@@ -652,6 +678,18 @@ class Stellwerk:
         print(
             f"Taster losgelassen: {name}"
         )
+
+        if name == "SHUTDOWN":
+
+            self.shutdown_cancelled.set()
+
+            if self.shutdown_warning_active:
+
+                print(
+                    "Abschaltvorgang wird abgebrochen."
+                )
+
+            return
 
         # -------------------------------------------------
         # Aus gedrückten Tastern entfernen

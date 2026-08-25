@@ -165,12 +165,19 @@ class LEDs:
 
     def all_flash_red(
         self,
-        count
+        count,
+        cancel_event=None
     ):
 
         self.stop_blink()
 
         for _ in range(count):
+
+            if cancel_event and cancel_event.is_set():
+
+                self.all_off()
+
+                return False
 
             for led in range(1, LED_COUNT + 1):
 
@@ -181,15 +188,35 @@ class LEDs:
 
             self.show()
 
-            time.sleep(
-                BLINK_INTERVAL
-            )
+            if cancel_event:
+
+                if cancel_event.wait(BLINK_INTERVAL):
+
+                    self.all_off()
+
+                    return False
+
+            else:
+
+                time.sleep(
+                    BLINK_INTERVAL
+                )
 
             self.all_off()
 
-            time.sleep(
-                BLINK_INTERVAL
-            )
+            if cancel_event:
+
+                if cancel_event.wait(BLINK_INTERVAL):
+
+                    return False
+
+            else:
+
+                time.sleep(
+                    BLINK_INTERVAL
+                )
+
+        return True
 
     # ==================================================
     # WEICHENSTELLUNG ANZEIGEN
