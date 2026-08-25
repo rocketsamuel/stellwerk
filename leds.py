@@ -1,7 +1,7 @@
-```python
 import threading
 import time
-import os
+
+from rpi_ws281x import PixelStrip, Color
 
 from config import (
     LED_COUNT,
@@ -14,13 +14,6 @@ from config import (
 
 
 # ======================================================
-# RP1 WS2812B PWM DEVICE
-# ======================================================
-
-WS281X_DEVICE = "/dev/ws281x_pwm"
-
-
-# ======================================================
 # FARBEN
 # ======================================================
 
@@ -28,114 +21,22 @@ YELLOW = (255, 180, 0)
 RED = (255, 0, 0)
 OFF = (0, 0, 0)
 
-
 class LEDs:
 
     def __init__(self):
 
-        self.fd = None
+        self.strip = PixelStrip(
+            LED_COUNT,
+            LED_PIN,
+            800000,
+            10,
+            False,
+            LED_BRIGHTNESS,
+            0
+        )
 
         self.blink_thread = None
         self.blink_stop_event = threading.Event()
-
-        # Lokaler LED-Puffer.
-        #
-        # set() verändert nur den Puffer.
-        # show() überträgt den kompletten Puffer.
-        #
-        # Die Farbreihenfolge wird erst beim Erzeugen
-        # des Datenstroms auf GRB umgesetzt.
-        self.pixels = [
-            OFF
-            for _ in range(LED_COUNT)
-        ]
-
-    # ==================================================
-    # WS2812B BYTE ENCODIEREN
-    # ==================================================
-
-    @staticmethod
-    def _encode_byte(value):
-
-        """
-        Erzeugt aus einem 8-Bit-Wert acht 32-Bit-PWM-Werte.
-
-        PWM-Takt:
-            25.6 MHz
-
-        PWM-Periode:
-            32 Takte = 1.25 us
-
-        WS2812B:
-            0 -> ca. 0.39 us HIGH
-            1 -> ca. 0.78 us HIGH
-
-        Deshalb:
-            0 = 10 Takte
-            1 = 20 Takte
-
-        Der RP1-Treiber sendet jedes 32-Bit-Wort über
-        die PWM-Duty-FIFO.
-        """
-
-        value = max(
-            0,
-            min(255, int(value))
-        )
-
-        result = bytearray()
-
-        for bit in range(7, -1, -1):
-
-            if value & (1 << bit):
-
-                # WS2812 logical 1
-                duty = 20
-
-            else:
-
-                # WS2812 logical 0
-                duty = 10
-
-            result += duty.to_bytes(
-                4,
-                byteorder="little",
-                signed=False
-            )
-
-        return result
-
-    # ==================================================
-    # WS2812B FRAME ERZEUGEN
-    # ==================================================
-
-    def _build_frame(self):
-
-        data = bytearray()
-
-        for r, g, b in self.pixels:
-
-            # WS2812B erwartet GRB
-            data += self._encode_byte(g)
-            data += self._encode_byte(r)
-            data += self._encode_byte(b)
-
-        # --------------------------------------------------
-        # RESET / LATCH
-        #
-        # 128 Bytes = 32 PWM-Worte
-        # 32 * 1.25 us = 40 us LOW
-        #
-        # Damit ist die erforderliche WS2812B-Latch-Zeit
-        # sicher länger als 50 us.
-        #
-        # Der letzte DMA-Wert ist 0 und nach dem Ende des
-        # Transfers bleibt die PWM-Leitung LOW.
-        # --------------------------------------------------
-
-        data += bytes(128)
-
-        return bytes(data)
 
     # ==================================================
     # START
@@ -143,15 +44,7 @@ class LEDs:
 
     def start(self):
 
-        print(
-            f"Öffne WS2812B Device: "
-            f"{WS281X_DEVICE}"
-        )
-
-        self.fd = os.open(
-            WS281X_DEVICE,
-            os.O_WRONLY
-        )
+        self.strip.begin()
 
         self.all_off()
 
@@ -181,26 +74,9 @@ class LEDs:
                 f"(erlaubt: 1-{LED_COUNT})"
             )
 
-        # --------------------------------------------------
-        # Helligkeit wie bei PixelStrip berücksichtigen.
-        #
-        # 0   = aus
-        # 255 = volle Helligkeit
-        # --------------------------------------------------
-
-        brightness = max(
-            0,
-            min(255, LED_BRIGHTNESS)
-        )
-
-        r = int(r * brightness / 255)
-        g = int(g * brightness / 255)
-        b = int(b * brightness / 255)
-
-        self.pixels[led - 1] = (
-            r,
-            g,
-            b
+        self.strip.setPixelColor(
+            led - 1,
+            Color(r, g, b)
         )
 
     # ==================================================
@@ -209,31 +85,7 @@ class LEDs:
 
     def show(self):
 
-        if self.fd is None:
-
-            raise RuntimeError(
-                "WS2812B Device ist nicht gestartet"
-            )
-
-        data = self._build_frame()
-
-        total = 0
-
-        while total < len(data):
-
-            written = os.write(
-                self.fd,
-                data[total:]
-            )
-
-            if written <= 0:
-
-                raise RuntimeError(
-                    "Fehler beim Schreiben "
-                    "auf WS2812B Device"
-                )
-
-            total += written
+        self.strip.show()
 
     # ==================================================
     # ALLE LEDs AUS
@@ -263,6 +115,8 @@ class LEDs:
         self,
         switch_name,
         position
+
+
     ):
 
         leds = SWITCH_LEDS.get(
@@ -307,6 +161,7 @@ class LEDs:
             self.show()
 
             return
+
 
         # ----------------------------------------------
         # Aktuelle Stellung gelb anzeigen
@@ -431,6 +286,7 @@ class LEDs:
 
                 self.blink_stop_event.wait(
                     BLINK_INTERVAL
+
                 )
 
         self.blink_thread = threading.Thread(
@@ -565,6 +421,7 @@ class LEDs:
     def route_error(
         self,
         route_name
+
     ):
 
         # ----------------------------------------------
@@ -655,16 +512,4 @@ class LEDs:
         )
 
         self.stop_blink()
-
-        if self.fd is not None:
-
-            try:
-
-                self.all_off()
-
-            finally:
-
-                os.close(self.fd)
-
-                self.fd = None
-```
+        self.all_off()
