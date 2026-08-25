@@ -72,7 +72,7 @@ class LEDs:
 
             self.set(
                 led,
-                *YELLOW
+                *(0, 0, 255)
             )
 
             self.show()
