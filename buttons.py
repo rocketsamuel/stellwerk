@@ -1,5 +1,5 @@
 from gpiozero import Button
-from gpiozero.pins.lgpio import LGPIOFactory
+
 
 
 class Buttons:
@@ -13,15 +13,6 @@ class Buttons:
         self.callback = callback
 
         self.buttons = {}
-
-        # -------------------------------------------------
-        # Raspberry Pi 5
-        #
-        # Die GPIOs des 40-Pin-Headers liegen hier auf
-        # gpiochip15.
-        # -------------------------------------------------
-
-        self.pin_factory = LGPIOFactory(chip=15)
 
         # -------------------------------------------------
         # Taster einrichten
@@ -38,19 +29,11 @@ class Buttons:
                 button = Button(
                     pin,
                     pull_up=True,
-                    bounce_time=0.05,
-                    pin_factory=self.pin_factory
+                    bounce_time=0.05
+
                 )
 
             except Exception as error:
-
-                # Bereits angelegte Taster wieder schließen
-                for existing_button in self.buttons.values():
-                    existing_button.close()
-
-                self.buttons.clear()
-
-                self.pin_factory.close()
 
                 raise RuntimeError(
                     f"Taster {name} an GPIO "
@@ -124,16 +107,17 @@ class Buttons:
         )
 
     # =====================================================
-    # TASTER SCHLIESSEN
+    # BEENDEN
     # =====================================================
 
     def close(self):
 
         for button in self.buttons.values():
+
             button.close()
 
         self.buttons.clear()
 
-        if self.pin_factory is not None:
-            self.pin_factory.close()
-            self.pin_factory = None
+        print(
+            "Taster deaktiviert."
+        )
