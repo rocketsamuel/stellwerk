@@ -16,9 +16,14 @@ ROUTE_MIN_BLINK_TIME = 1
 
 # Reihenfolge der LEDs beim Programmstart. Hier die gewünschte
 # Reihenfolge eintragen; die LEDs bleiben bis zum Ende der Sequenz an.
+<<<<<<< HEAD
 STARTUP_LED_ORDER = [list(range(1, LED_COUNT + 1))]
 STARTUP_LED_DELAY = 0.1
 STARTUP_LED_FLASH_TIME = 0.5
+=======
+STARTUP_LED_ORDER = list(range(1, LED_COUNT + 1))
+STARTUP_LED_DELAY = 0.1
+>>>>>>> c8b6a0836ca3ce253045f652933bb72a7ea94fca
 
 # ---------------------------------------------------------
 # TASTER
