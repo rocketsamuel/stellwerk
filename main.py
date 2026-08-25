@@ -1,3 +1,4 @@
+import subprocess
 import time
 
 from config import (
@@ -5,6 +6,8 @@ from config import (
     ROUTE_TIMEOUT,
     ROUTE_MIN_BLINK_TIME,
     LED_COUNT,
+    SHUTDOWN_HOLD_TIME,
+    SHUTDOWN_FLASH_COUNT,
 )
 
 from z21 import Z21
@@ -95,7 +98,8 @@ class Stellwerk:
 
         self.buttons = Buttons(
             BUTTON_PINS,
-            self.on_button
+            self.on_button,
+            SHUTDOWN_HOLD_TIME
         )
 
         print()
@@ -371,6 +375,18 @@ class Stellwerk:
             return
 
         # =================================================
+        # TASTER LANGE GEDRÜCKT
+        # =================================================
+
+        if event == "held":
+
+            self._button_held(
+                name
+            )
+
+            return
+
+        # =================================================
         # TASTER LOSGELASSEN
         # =================================================
 
@@ -395,6 +411,18 @@ class Stellwerk:
         print(
             f"Taster gedrückt: {name}"
         )
+
+        # -------------------------------------------------
+        # RASPBERRY PI HERUNTERFAHREN
+        # -------------------------------------------------
+
+        if name == "SHUTDOWN":
+
+            print(
+                "SHUTDOWN-Taster für 5 Sekunden halten."
+            )
+
+            return
 
         # -------------------------------------------------
         # Taster als gedrückt registrieren
@@ -565,6 +593,51 @@ class Stellwerk:
             start,
             target
         )
+
+    # =====================================================
+    # ABSCHALTTASTER LANGE GEDRÜCKT
+    # =====================================================
+
+    def _button_held(
+        self,
+        name
+    ):
+
+        if name != "SHUTDOWN":
+            return
+
+        print(
+            "SHUTDOWN-Taster 5 Sekunden gehalten."
+        )
+
+        self.leds.all_flash_red(
+            SHUTDOWN_FLASH_COUNT
+        )
+
+        self.shutdown_raspberry_pi()
+
+    # =====================================================
+    # RASPBERRY PI HERUNTERFAHREN
+    # =====================================================
+
+    def shutdown_raspberry_pi(self):
+
+        print()
+        print(
+            "Herunterfahren durch SHUTDOWN-Taster..."
+        )
+
+        try:
+
+            subprocess.Popen(
+                ["systemctl", "poweroff"]
+            )
+
+        except OSError as error:
+
+            print(
+                f"Herunterfahren fehlgeschlagen: {error}"
+            )
 
     # =====================================================
     # TASTER LOSGELASSEN

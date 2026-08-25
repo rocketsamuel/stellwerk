@@ -160,6 +160,38 @@ class LEDs:
         self.show()
 
     # ==================================================
+    # ALLE LEDs ROT BLINKEN
+    # ==================================================
+
+    def all_flash_red(
+        self,
+        count
+    ):
+
+        self.stop_blink()
+
+        for _ in range(count):
+
+            for led in range(1, LED_COUNT + 1):
+
+                self.set(
+                    led,
+                    *RED
+                )
+
+            self.show()
+
+            time.sleep(
+                BLINK_INTERVAL
+            )
+
+            self.all_off()
+
+            time.sleep(
+                BLINK_INTERVAL
+            )
+
+    # ==================================================
     # WEICHENSTELLUNG ANZEIGEN
     # ==================================================
 

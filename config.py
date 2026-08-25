@@ -22,6 +22,9 @@ STARTUP_LED_FLASH_COUNT = 2
 STARTUP_LED_ORDER = list(range(1, LED_COUNT + 1))
 STARTUP_LED_DELAY = 0.1
 
+SHUTDOWN_HOLD_TIME = 5.0
+SHUTDOWN_FLASH_COUNT = 3
+
 # ---------------------------------------------------------
 # TASTER
 # BCM-GPIO-Nummern
@@ -34,6 +37,7 @@ BUTTON_PINS = {
     "ABS3": 24,
     "BW": None,
     "RELEASE": 17,
+    "SHUTDOWN": 25,
 }
 
 # ---------------------------------------------------------

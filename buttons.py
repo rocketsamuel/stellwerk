@@ -5,7 +5,8 @@ class Buttons:
     def __init__(
         self,
         button_pins,
-        callback
+        callback,
+        shutdown_hold_time
     ):
 
         self.callback = callback
@@ -57,6 +58,15 @@ class Buttons:
                 self._released(n)
             )
 
+            if name == "SHUTDOWN":
+
+                button.hold_time = shutdown_hold_time
+
+                button.when_held = (
+                    lambda n=name:
+                    self._held(n)
+                )
+
             self.buttons[name] = button
 
             print(
@@ -102,6 +112,24 @@ class Buttons:
         self.callback(
             name,
             "released"
+        )
+
+    # =====================================================
+    # TASTER GEDRÜCKT GEHALTEN
+    # =====================================================
+
+    def _held(
+        self,
+        name
+    ):
+
+        print(
+            f"Taster {name} lange gedrückt."
+        )
+
+        self.callback(
+            name,
+            "held"
         )
 
     # =====================================================
