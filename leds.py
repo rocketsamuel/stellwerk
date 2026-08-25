@@ -12,6 +12,7 @@ from config import (
     BLINK_INTERVAL,
     STARTUP_LED_ORDER,
     STARTUP_LED_DELAY,
+    STARTUP_LED_FLASH_TIME,
 )
 
 
@@ -72,7 +73,7 @@ class LEDs:
 
             self.set(
                 led,
-                *YELLOW
+                *(0, 0, 255)
             )
 
             self.show()
@@ -80,6 +81,22 @@ class LEDs:
             time.sleep(
                 STARTUP_LED_DELAY
             )
+
+        # Erst ausschalten, damit der gemeinsame Blinkimpuls sichtbar ist.
+        self.all_off()
+
+        for led in range(1, LED_COUNT + 1):
+
+            self.set(
+                led,
+                *YELLOW
+            )
+
+        self.show()
+
+        time.sleep(
+            STARTUP_LED_FLASH_TIME
+        )
 
         self.all_off()
 
