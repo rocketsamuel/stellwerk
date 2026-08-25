@@ -13,6 +13,7 @@ from config import (
     STARTUP_LED_ORDER,
     STARTUP_LED_DELAY,
     STARTUP_LED_FLASH_TIME,
+    STARTUP_LED_FLASH_OFF_TIME,
 )
 
 # ======================================================
@@ -83,6 +84,10 @@ class LEDs:
 
         # Erst ausschalten, damit der gemeinsame Blinkimpuls sichtbar ist.
         self.all_off()
+
+        time.sleep(
+            STARTUP_LED_FLASH_OFF_TIME
+        )
 
         for led in range(1, LED_COUNT + 1):
 
