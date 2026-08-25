@@ -14,6 +14,7 @@ from config import (
     STARTUP_LED_DELAY,
     STARTUP_LED_FLASH_TIME,
     STARTUP_LED_FLASH_OFF_TIME,
+    STARTUP_LED_FLASH_COUNT,
 )
 
 # ======================================================
@@ -82,25 +83,27 @@ class LEDs:
                 STARTUP_LED_DELAY
             )
 
-        # Erst ausschalten, damit der gemeinsame Blinkimpuls sichtbar ist.
-        self.all_off()
+        # Alle LEDs am Ende der Startsequenz gemeinsam aufblinken.
+        for _ in range(STARTUP_LED_FLASH_COUNT):
 
-        time.sleep(
-            STARTUP_LED_FLASH_OFF_TIME
-        )
+            self.all_off()
 
-        for led in range(1, LED_COUNT + 1):
-
-            self.set(
-                led,
-                *(0, 0, 255)
+            time.sleep(
+                STARTUP_LED_FLASH_OFF_TIME
             )
 
-        self.show()
+            for led in range(1, LED_COUNT + 1):
 
-        time.sleep(
-            STARTUP_LED_FLASH_TIME
-        )
+                self.set(
+                    led,
+                    *(0, 0, 255)
+                )
+
+            self.show()
+
+            time.sleep(
+                STARTUP_LED_FLASH_TIME
+            )
 
         self.all_off()
 
