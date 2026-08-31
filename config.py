@@ -49,7 +49,10 @@ SWITCHES = {
         "type": "turnout",
         "address": 5,
     },
-
+    "eow1": {
+        "type": "turnout",
+        "address": 127,
+    },
     "sw42": {
         "type": "three_way",
         "addresses": [25, 26],
@@ -140,6 +143,10 @@ SWITCH_LEDS = {
         "left": 12,
         "straight": 11,
         "right": 10,
+    },
+    "eow1": {
+        "straight": 16,
+        "turnout": 15,
     },
 }
 
