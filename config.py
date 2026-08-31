@@ -35,7 +35,7 @@ BUTTON_PINS = {
     "ABS1": 27,
     "ABS2": 23,
     "ABS3": 24,
-    "BW": None,
+    "BW": 16,
     "RELEASE": 17,
     "SHUTDOWN": 25,
 }
@@ -127,6 +127,13 @@ ROUTES = {
          "sw42": "left"
      },
   },
+    "HBF4_BW": {
+     "start": "HBF4",
+     "target": "BW",
+     "switches": {
+         "eow1": "straight"
+     },
+  },
 }
 
 
@@ -156,5 +163,6 @@ ROUTE_LEDS = {
     "ABS3_HBF4": [6, 7, 8, 13, 14],
     "HBF4_ABS1": [1, 2, 9, 13],
     "HBF4_ABS2": [5, 9, 13],
-    "HBF4_ABS3": [6, 7, 8, 13, 14]
+    "HBF4_ABS3": [6, 7, 8, 13, 14],
+    "HBF4_BW": [18, 19, 20]
 }
