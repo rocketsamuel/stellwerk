@@ -90,6 +90,15 @@ ROUTES = {
         "sw42": "straight"
      },
   },
+  "ABS1_BW": {
+     "start": "ABS1",
+     "target": "BW",
+     "switches": {
+        "sw46": "turnout",
+        "sw42": "straight",
+        "EOW1": "straight"
+     },
+  },
   "ABS2_HBF4": {
      "start": "ABS2",
      "target": "HBF4",
@@ -160,6 +169,7 @@ SWITCH_LEDS = {
 
 ROUTE_LEDS = {
     "ABS1_HBF4": [1, 2, 9, 13],
+    "ABS1_BW": [1, 2, 9, 13, 18, 19, 20],
     "ABS2_HBF4": [5, 9, 13],
     "ABS3_HBF4": [6, 7, 8, 13, 14],
     "HBF4_ABS1": [1, 2, 9, 13],
