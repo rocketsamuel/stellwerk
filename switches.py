@@ -52,6 +52,23 @@ class SwitchController:
                     self.address_map[address] = name
 
     # =====================================================
+    # LOGISCHE / PHYSISCHE WEICHENSTELLUNG
+    # =====================================================
+
+    @staticmethod
+    def _map_turnout_position(config, position):
+
+        """Ordnet Z21-Ausgänge der logischen Gleisstellung zu."""
+
+        if not config.get("inverted", False):
+            return position
+
+        return {
+            "straight": "turnout",
+            "turnout": "straight",
+        }.get(position, position)
+
+    # =====================================================
     # Z21-RÜCKMELDUNG
     # =====================================================
 
@@ -82,16 +99,21 @@ class SwitchController:
 
         if switch_type == "turnout":
 
-            self.states[switch_name] = position
+            logical_position = self._map_turnout_position(
+                config,
+                position
+            )
+
+            self.states[switch_name] = logical_position
 
             print(
                 f"Z21: Adresse {address} "
-                f"-> {position}"
+                f"-> {logical_position}"
             )
 
             return (
                 switch_name,
-                position
+                logical_position
             )
 
         # -------------------------------------------------
@@ -341,6 +363,11 @@ class SwitchController:
 
             address = config["address"]
 
+            z21_position = self._map_turnout_position(
+                config,
+                position
+            )
+
             print(
                 f"Weiche {switch_name}: "
                 f"Adresse {address} "
@@ -349,7 +376,7 @@ class SwitchController:
 
             self.z21.set_turnout(
                 address,
-                position
+                z21_position
             )
 
             return
