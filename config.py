@@ -96,7 +96,7 @@ ROUTES = {
      "switches": {
         "sw46": "turnout",
         "sw42": "straight",
-        "EOW1": "straight"
+        "eow1": "straight"
      },
   },
   "ABS2_HBF4": {
