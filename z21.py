@@ -7,6 +7,7 @@ from config import (
     Z21_PORT,
     TURNOUT_PULSE_TIME,
     BROADCAST_KEEPALIVE,
+    Z21_BROADCAST_FLAGS,
 )
 
 
@@ -26,22 +27,24 @@ class Z21:
         self.thread = None
 
         self.callback = None
+        self.broadcast_callback = None
 
         # Z21-Adresse -> Stellung
         self.states = {}
 
     def subscribe(self):
 
+        flags = Z21_BROADCAST_FLAGS.to_bytes(
+            4,
+            byteorder="little"
+        )
+
         packet = bytes([
             0x08,
             0x00,
             0x50,
             0x00,
-            0x01,
-            0x00,
-            0x00,
-            0x00,
-        ])
+        ]) + flags
 
         self.socket.sendto(
             packet,
@@ -132,9 +135,14 @@ class Z21:
             (Z21_IP, Z21_PORT)
         )
 
-    def start(self, callback):
+    def start(
+        self,
+        callback,
+        broadcast_callback=None
+    ):
 
         self.callback = callback
+        self.broadcast_callback = broadcast_callback
         self.running = True
 
         self.subscribe()
@@ -177,7 +185,39 @@ class Z21:
 
                 break
 
-            self._process(data)
+            self._process_datagram(data)
+
+    def _process_datagram(self, data):
+
+        """Zerlegt ein UDP-Datagramm in Z21-Datasets.
+
+        Die Z21 darf mehrere Datasets in einem einzigen
+        UDP-Datagramm zusammenfassen.
+        """
+
+        offset = 0
+
+        while offset + 4 <= len(data):
+
+            length = int.from_bytes(
+                data[offset:offset + 2],
+                byteorder="little"
+            )
+
+            if length < 4 or offset + length > len(data):
+                # Auch fehlerhafte/unvollständige Daten sichtbar
+                # machen, statt sie still zu verwerfen.
+                if self.broadcast_callback:
+                    self.broadcast_callback(data[offset:])
+                return
+
+            dataset = data[offset:offset + length]
+
+            if self.broadcast_callback:
+                self.broadcast_callback(dataset)
+
+            self._process(dataset)
+            offset += length
 
     def _process(self, data):
 

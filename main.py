@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 import threading
 import time
@@ -9,6 +10,7 @@ from config import (
     LED_COUNT,
     SHUTDOWN_HOLD_TIME,
     SHUTDOWN_FLASH_COUNT,
+    Z21_LOG_BROADCASTS,
 )
 
 from z21 import Z21
@@ -20,9 +22,13 @@ from buttons import Buttons
 
 class Stellwerk:
 
-    def __init__(self):
+    def __init__(
+        self,
+        log_z21_broadcasts=Z21_LOG_BROADCASTS
+    ):
 
         self.z21 = Z21()
+        self.log_z21_broadcasts = log_z21_broadcasts
 
         self.switches = SwitchController(
             self.z21
@@ -95,7 +101,10 @@ class Stellwerk:
         # -------------------------------------------------
 
         self.z21.start(
-            self.on_z21_change
+            self.on_z21_change,
+            self.on_z21_broadcast
+            if self.log_z21_broadcasts
+            else None
         )
 
         # -------------------------------------------------
@@ -117,6 +126,30 @@ class Stellwerk:
     # =====================================================
     # Z21 RÜCKMELDUNG
     # =====================================================
+
+    def on_z21_broadcast(self, data):
+
+        """Gibt jedes empfangene Z21-Dataset lesbar aus."""
+
+        header = int.from_bytes(
+            data[2:4],
+            byteorder="little"
+        ) if len(data) >= 4 else None
+
+        if header is None:
+            description = "unvollständig"
+        elif header == 0x0040 and len(data) >= 5:
+            description = (
+                f"LAN_X, X-Header=0x{data[4]:02X}"
+            )
+        else:
+            description = f"Header=0x{header:04X}"
+
+        hex_data = data.hex(" ").upper()
+
+        print(
+            f"Z21 Broadcast: {description} | {hex_data}"
+        )
 
     def on_z21_change(
         self,
@@ -1502,7 +1535,23 @@ def find_route_by_name(
 
 def main():
 
-    stellwerk = Stellwerk()
+    parser = argparse.ArgumentParser(
+        description="Stellwerksteuerung"
+    )
+    parser.add_argument(
+        "--z21-broadcasts",
+        action="store_true",
+        default=Z21_LOG_BROADCASTS,
+        help=(
+            "alle empfangenen Z21-Broadcasts "
+            "als Hexdaten ausgeben"
+        )
+    )
+    args = parser.parse_args()
+
+    stellwerk = Stellwerk(
+        log_z21_broadcasts=args.z21_broadcasts
+    )
 
     try:
 

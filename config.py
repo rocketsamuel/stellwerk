@@ -4,6 +4,13 @@ Z21_PORT = 21105
 
 TURNOUT_PULSE_TIME = 0.2
 BROADCAST_KEEPALIVE = 5.0
+
+# Alle von der Z21 dokumentierten Broadcast-Gruppen abonnieren:
+# Fahren/Schalten, R-Bus, RailCom, Systemstatus und LocoNet.
+Z21_BROADCAST_FLAGS = 0x0F0F0117
+
+# Jedes empfangene Z21-Dataset als Hex-Zeile ausgeben.
+Z21_LOG_BROADCASTS = False
 ROUTE_TIMEOUT = 10.0
 
 # WS2812B
