@@ -2,7 +2,7 @@
 Z21_IP = "192.168.178.223"
 Z21_PORT = 21105
 
-TURNOUT_PULSE_TIME = 2
+TURNOUT_PULSE_TIME = 0.2
 BROADCAST_KEEPALIVE = 5.0
 
 # Nur Schaltmeldungen und R-Bus-Rückmelder abonnieren.
