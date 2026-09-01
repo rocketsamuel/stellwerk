@@ -103,7 +103,7 @@ ROUTES = {
      "switches": {
         "sw46": "turnout",
         "sw42": "straight",
-        "EOW1": "straight"
+        "eow1": "straight"
      },
   },
   "ABS2_HBF4": {
@@ -114,19 +114,45 @@ ROUTES = {
          "sw42": "straight"
      },
   },
-    "ABS3_HBF4": {
+  "ABS2_BW": {
+     "start": "ABS2",
+     "target": "BW",
+     "switches": {
+         "sw46": "straight",
+         "sw42": "straight",
+         "eow1": "straight"
+     },
+  },
+  "ABS3_HBF4": {
      "start": "ABS3",
      "target": "HBF4",
      "switches": {
          "sw42": "left"
      },
   },
-    "HBF4_ABS1": {
+  "ABS3_BW": {
+     "start": "ABS3",
+     "target": "BW",
+     "switches": {
+         "sw42": "left",
+         "eow1": "straight"
+     },
+  },
+  "HBF4_ABS1": {
      "start": "HBF4",
      "target": "ABS1",
      "switches": {
         "sw46": "turnout",
         "sw42": "straight"
+     },
+  },
+  "BW_ABS1": {
+     "start": "BW",
+     "target": "ABS1",
+     "switches": {
+        "sw46": "turnout",
+        "sw42": "straight",
+        "eow1": "straight"
      },
   },
     "HBF4_ABS2": {
@@ -137,11 +163,28 @@ ROUTES = {
          "sw42": "straight"
      },
   },
+  "BW_ABS2": {
+     "start": "BW",
+     "target": "ABS2",
+     "switches": {
+         "sw46": "straight",
+         "sw42": "straight",
+         "eow1": "straight"
+     },
+  },
     "HBF4_ABS3": {
      "start": "HBF4",
      "target": "ABS3",
      "switches": {
          "sw42": "left"
+     },
+  },
+  "BW_ABS3": {
+     "start": "BW",
+     "target": "ABS3",
+     "switches": {
+         "sw42": "left",
+         "eow1": "straight"
      },
   },
     "HBF4_BW": {
@@ -178,9 +221,15 @@ ROUTE_LEDS = {
     "ABS1_HBF4": [1, 2, 9, 13],
     "ABS1_BW": [1, 2, 9, 13, 18, 19, 20],
     "ABS2_HBF4": [5, 9, 13],
+    "ABS2_BW": [5, 9, 13, 18, 19, 20],
     "ABS3_HBF4": [6, 7, 8, 13, 14],
+    "ABS3_BW": [6, 7, 8, 13, 14, 18, 19, 20],
     "HBF4_ABS1": [1, 2, 9, 13],
     "HBF4_ABS2": [5, 9, 13],
     "HBF4_ABS3": [6, 7, 8, 13, 14],
-    "HBF4_BW": [18, 19, 20]
+    "HBF4_BW": [13, 18, 19, 20],
+    "BW_HBF4": [13, 18, 19, 20],
+    "BW_ABS1": [1, 2, 9, 13, 18, 19, 20],
+    "BW_ABS2": [5, 9, 13, 18, 19, 20],
+    "BW_ABS3": [6, 7, 8, 13, 14, 18, 19, 20],
 }
