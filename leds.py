@@ -66,10 +66,6 @@ class LEDs:
 
     def startup_sequence(self):
 
-        print(
-            f"LED-Startsequenz: {STARTUP_LED_ORDER}"
-        )
-
         for led in STARTUP_LED_ORDER:
 
             self.set(
