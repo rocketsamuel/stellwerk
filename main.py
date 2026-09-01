@@ -1213,6 +1213,36 @@ class Stellwerk:
         )
 
         # -------------------------------------------------
+        # SIGNALE AUF HALT
+        # -------------------------------------------------
+
+        _, route = find_route_by_name(
+            route_name
+        )
+
+        if route is not None:
+
+            for signal_name in route.get(
+                "signals",
+                {}
+            ):
+
+                try:
+                    self.signals.command(
+                        signal_name,
+                        "Hp0"
+                    )
+                except Exception as error:
+                    # Die Fahrstraße muss auch dann vollständig
+                    # aufgelöst werden, wenn ein Signalbefehl
+                    # nicht gesendet werden konnte.
+                    print(
+                        f"FEHLER beim Stellen von "
+                        f"{signal_name} auf Hp0: "
+                        f"{error}"
+                    )
+
+        # -------------------------------------------------
         # Status löschen
         # -------------------------------------------------
 
