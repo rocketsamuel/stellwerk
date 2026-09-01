@@ -86,6 +86,27 @@ SWITCHES = {
 }
 
 # ---------------------------------------------------------
+# SIGNALE
+# ---------------------------------------------------------
+
+SIGNALS = {
+    "signal_abs": {
+        "type": "dccext_four_aspect",
+        "addresses": [49, 50],
+
+        # Vorläufige Zuordnung für den Test am Decoder.
+        # Falls das Signal nicht Hp0+Sh1 zeigt, muss nur diese
+        # eine Zuordnung angepasst werden.
+        "aspects": {
+            "Hp0_Sh1": {
+                "address": 50,
+                "position": "turnout",
+            },
+        },
+    },
+}
+
+# ---------------------------------------------------------
 # FAHRSTRASSEN
 # ---------------------------------------------------------
 
@@ -146,6 +167,7 @@ ROUTES = {
         "sw46": "turnout",
         "sw42": "straight"
      },
+     "signals": {"signal_abs": "Hp0_Sh1"},
   },
   "BW_ABS1": {
      "start": "BW",
@@ -155,6 +177,7 @@ ROUTES = {
         "sw42": "straight",
         "eow1": "straight"
      },
+     "signals": {"signal_abs": "Hp0_Sh1"},
   },
     "HBF4_ABS2": {
      "start": "HBF4",
@@ -163,6 +186,7 @@ ROUTES = {
          "sw46": "straight",
          "sw42": "straight"
      },
+     "signals": {"signal_abs": "Hp0_Sh1"},
   },
   "BW_ABS2": {
      "start": "BW",
@@ -172,6 +196,7 @@ ROUTES = {
          "sw42": "straight",
          "eow1": "straight"
      },
+     "signals": {"signal_abs": "Hp0_Sh1"},
   },
     "HBF4_ABS3": {
      "start": "HBF4",
@@ -179,6 +204,7 @@ ROUTES = {
      "switches": {
          "sw42": "left"
      },
+     "signals": {"signal_abs": "Hp0_Sh1"},
   },
   "BW_ABS3": {
      "start": "BW",
@@ -187,6 +213,7 @@ ROUTES = {
          "sw42": "left",
          "eow1": "straight"
      },
+     "signals": {"signal_abs": "Hp0_Sh1"},
   },
     "HBF4_BW": {
      "start": "HBF4",

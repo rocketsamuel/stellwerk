@@ -15,6 +15,7 @@ from config import (
 
 from z21 import Z21
 from switches import SwitchController
+from signals import SignalController
 from routes import find_route
 from leds import LEDs
 from buttons import Buttons
@@ -31,6 +32,10 @@ class Stellwerk:
         self.log_z21_broadcasts = log_z21_broadcasts
 
         self.switches = SwitchController(
+            self.z21
+        )
+
+        self.signals = SignalController(
             self.z21
         )
 
@@ -1079,6 +1084,17 @@ class Stellwerk:
 
                 self.active_route = name
 
+                # Das Signal wird erst freigegeben, nachdem alle
+                # Weichen in der geforderten Lage bestätigt sind.
+                try:
+                    self.signals.command_for_route(route)
+                except Exception as error:
+                    print(f"FEHLER beim Stellen des Signals: {error}")
+                    self.active_route = None
+                    self.leds.stop_blink()
+                    self.leds.route_off(name)
+                    return False
+
                 self.leds.route_on(
                     name
                 )
@@ -1329,6 +1345,10 @@ def console_mode(
     )
 
     print(
+        "  signal-test <adresse> <straight|turnout>"
+    )
+
+    print(
         "  start <name>"
     )
 
@@ -1474,6 +1494,23 @@ def console_mode(
             continue
 
         # =================================================
+        # SIGNALTEST
+        # =================================================
+
+        if (
+            len(parts) == 3
+            and parts[0] == "signal-test"
+        ):
+
+            try:
+                address = int(parts[1])
+                stellwerk.signals.test_output(address, parts[2])
+            except ValueError as error:
+                print(f"Signaltest fehlgeschlagen: {error}")
+
+            continue
+
+        # =================================================
         # ROUTE
         # =================================================
 
@@ -1504,6 +1541,10 @@ def console_mode(
 
         print(
             "  route <start> <ziel>"
+        )
+
+        print(
+            "  signal-test <adresse> <straight|turnout>"
         )
 
         print(
