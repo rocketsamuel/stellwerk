@@ -44,6 +44,8 @@ BUTTON_PINS = {
     "ABS2": 23,
     "ABS3": 24,
     "BW": 16,
+    "EOW5": 26,
+    "EOW6": 20,
     "RELEASE": 17,
     "SHUTDOWN": 25,
 }
@@ -65,7 +67,6 @@ SWITCHES = {
     "sw42": {
         "type": "three_way",
         "addresses": [25, 26],
-
         "positions": {
             "straight": {
                 25: "straight",
@@ -236,6 +237,42 @@ ROUTES = {
      },
      "signals": {"signal_abs": "Hp0_Sh1"},
   },
+  "EOW5_HBF4": {
+     "start": "EOW5",
+     "target": "HBF4",
+     "switches": {
+         "eow1": "turnout"
+     },
+  },
+  "EOW5_ABS1": {
+     "start": "EOW5",
+     "target": "ABS1",
+     "switches": {
+         "eow1": "turnout",
+         "sw42": "straight",
+         "sw46": "turnout"
+     },
+     "signals": {"signal_abs": "Hp0_Sh1"},
+  },
+  "EOW5_ABS2": {
+     "start": "EOW5",
+     "target": "ABS2",
+     "switches": {
+         "eow1": "turnout",
+         "sw42": "straight",
+         "sw46": "straight"
+     },
+     "signals": {"signal_abs": "Hp0_Sh1"},
+  },
+  "EOW5_ABS3": {
+     "start": "EOW5",
+     "target": "ABS3",
+     "switches": {
+         "eow1": "turnout",
+         "sw42": "left"
+     },
+     "signals": {"signal_abs": "Hp0_Sh1"},
+  },
 }
 
 
@@ -274,4 +311,8 @@ ROUTE_LEDS = {
     "BW_ABS1": [1, 2, 9, 13, 18, 19, 20],
     "BW_ABS2": [5, 9, 13, 18, 19, 20],
     "BW_ABS3": [6, 7, 8, 13, 14, 18, 19, 20],
+    "EOW5_HBF4": [13, 17],
+    "EOW5_ABS1": [1, 2, 9, 13, 17],
+    "EOW5_ABS2": [5, 9, 13, 17],
+    "EOW5_ABS3": [6, 7, 8, 13, 14, 17],
 }
