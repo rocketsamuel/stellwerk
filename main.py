@@ -182,6 +182,17 @@ class Stellwerk:
         position
     ):
 
+        # Signaladressen sind normale Z21-Zubehöradressen,
+        # gehören aber nicht zum Weichencontroller.
+        if self.signals.uses_address(address):
+
+            print(
+                f"Z21: Signaladresse {address} "
+                f"-> {position}"
+            )
+
+            return
+
         print(
             f"Z21: Adresse {address} -> {position}"
         )

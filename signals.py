@@ -7,6 +7,15 @@ class SignalController:
         self.z21 = z21
         self.states = {}
 
+        self.addresses = {
+            address
+            for config in SIGNALS.values()
+            for address in config.get("addresses", [])
+        }
+
+    def uses_address(self, address):
+        return address in self.addresses
+
     def command(self, signal_name, aspect):
         if signal_name not in SIGNALS:
             raise ValueError(f"Unbekanntes Signal: {signal_name}")
@@ -37,13 +46,7 @@ class SignalController:
             self.command(signal_name, aspect)
 
     def test_output(self, address, position):
-        configured_addresses = {
-            address
-            for config in SIGNALS.values()
-            for address in config.get("addresses", [])
-        }
-
-        if address not in configured_addresses:
+        if not self.uses_address(address):
             raise ValueError(f"Keine konfigurierte Signaladresse: {address}")
 
         if position not in ("straight", "turnout"):
