@@ -104,7 +104,8 @@ class Stellwerk:
             self.on_z21_change,
             self.on_z21_broadcast
             if self.log_z21_broadcasts
-            else None
+            else None,
+            self.on_z21_feedback
         )
 
         # -------------------------------------------------
@@ -149,6 +150,20 @@ class Stellwerk:
 
         print(
             f"Z21 Broadcast: {description} | {hex_data}"
+        )
+
+    def on_z21_feedback(
+        self,
+        module,
+        input_number,
+        occupied
+    ):
+
+        state = "BELEGT" if occupied else "frei"
+
+        print(
+            f"R-Bus: Modul {module}, "
+            f"Eingang {input_number} -> {state}"
         )
 
     def on_z21_change(

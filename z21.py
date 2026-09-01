@@ -28,9 +28,13 @@ class Z21:
 
         self.callback = None
         self.broadcast_callback = None
+        self.feedback_callback = None
 
         # Z21-Adresse -> Stellung
         self.states = {}
+
+        # (R-Bus-Modul, Eingang) -> belegt/frei
+        self.feedback_states = {}
 
     def subscribe(self):
 
@@ -135,17 +139,43 @@ class Z21:
             (Z21_IP, Z21_PORT)
         )
 
+    def request_feedback_status(self, group):
+
+        if group not in (0, 1):
+            raise ValueError(
+                f"Ungültige R-Bus-Gruppe: {group}"
+            )
+
+        packet = bytes([
+            0x05,
+            0x00,
+            0x81,
+            0x00,
+            group,
+        ])
+
+        self.socket.sendto(
+            packet,
+            (Z21_IP, Z21_PORT)
+        )
+
     def start(
         self,
         callback,
-        broadcast_callback=None
+        broadcast_callback=None,
+        feedback_callback=None
     ):
 
         self.callback = callback
         self.broadcast_callback = broadcast_callback
+        self.feedback_callback = feedback_callback
         self.running = True
 
         self.subscribe()
+
+        # Aktuellen Zustand beider R-Bus-Stränge abfragen.
+        self.request_feedback_status(0)
+        self.request_feedback_status(1)
 
         self.thread = threading.Thread(
             target=self._listener,
@@ -221,6 +251,13 @@ class Z21:
 
     def _process(self, data):
 
+        if len(data) >= 15 and data[2:4] == bytes([
+            0x80,
+            0x00,
+        ]):
+            self._process_feedback(data)
+            return
+
         if len(data) < 8:
             return
 
@@ -260,6 +297,59 @@ class Z21:
                 address,
                 position
             )
+
+    def _process_feedback(self, data):
+
+        group = data[4]
+
+        if group not in (0, 1):
+            return
+
+        first_module = 1 + group * 10
+
+        # Die zehn Statusbytes gehören aufsteigend zu den
+        # R-Bus-Modulen. Jedes Bit steht für einen Eingang.
+        for module_offset, status in enumerate(data[5:15]):
+
+            module = first_module + module_offset
+
+            for bit in range(8):
+
+                input_number = bit + 1
+                occupied = bool(status & (1 << bit))
+                key = (module, input_number)
+                previous = self.feedback_states.get(key)
+
+                self.feedback_states[key] = occupied
+
+                # Beim ersten Gesamtstatus freie Eingänge nicht
+                # einzeln ausgeben. Bereits belegte Eingänge werden
+                # dagegen sofort gemeldet.
+                if previous is None and not occupied:
+                    continue
+
+                if (
+                    previous is not None
+                    and previous == occupied
+                ):
+                    continue
+
+                if self.feedback_callback:
+                    self.feedback_callback(
+                        module,
+                        input_number,
+                        occupied
+                    )
+
+    def get_feedback_state(
+        self,
+        module,
+        input_number
+    ):
+
+        return self.feedback_states.get(
+            (module, input_number)
+        )
 
     def get_state(self, address):
 
