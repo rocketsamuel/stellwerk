@@ -130,21 +130,26 @@ class Stellwerk:
 
     def on_z21_broadcast(self, data):
 
-        """Gibt jedes empfangene Z21-Dataset lesbar aus."""
+        """Gibt Schalt- und R-Bus-Datasets als Hexdaten aus."""
 
         header = int.from_bytes(
             data[2:4],
             byteorder="little"
         ) if len(data) >= 4 else None
 
-        if header is None:
-            description = "unvollständig"
-        elif header == 0x0040 and len(data) >= 5:
+        if (
+            header == 0x0040
+            and len(data) >= 5
+            and data[4] in (0x43, 0x44, 0x53, 0x54)
+        ):
             description = (
-                f"LAN_X, X-Header=0x{data[4]:02X}"
+                "Schaltmeldung, "
+                f"X-Header=0x{data[4]:02X}"
             )
+        elif header == 0x0080:
+            description = "R-Bus-Rückmeldung"
         else:
-            description = f"Header=0x{header:04X}"
+            return
 
         hex_data = data.hex(" ").upper()
 
@@ -1558,7 +1563,7 @@ def main():
         action="store_true",
         default=Z21_LOG_BROADCASTS,
         help=(
-            "alle empfangenen Z21-Broadcasts "
+            "Z21-Schaltmeldungen und R-Bus-Daten "
             "als Hexdaten ausgeben"
         )
     )
