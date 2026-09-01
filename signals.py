@@ -19,16 +19,17 @@ class SignalController:
                 f"Ungültiger Signalbegriff für {signal_name}: {aspect}"
             )
 
-        output = aspects[aspect]
-        address = output["address"]
-        position = output["position"]
+        outputs = aspects[aspect]
 
-        print(
-            f"Signal {signal_name}: {aspect} "
-            f"(Adresse {address} -> {position})"
-        )
+        print(f"Signal {signal_name}: {aspect}")
 
-        self.z21.set_turnout(address, position)
+        for output in outputs:
+            address = output["address"]
+            position = output["position"]
+
+            print(f"  Adresse {address} -> {position}")
+            self.z21.set_turnout(address, position)
+
         self.states[signal_name] = aspect
 
     def command_for_route(self, route):
