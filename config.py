@@ -74,6 +74,7 @@ SWITCHES = {
     "eow3": {
         "type": "turnout",
         "address": 128,
+        "inverted": True
     },
     "sw42": {
         "type": "three_way",
