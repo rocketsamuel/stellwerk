@@ -110,8 +110,12 @@ class Stellwerk:
             self.on_z21_broadcast
             if self.log_z21_broadcasts
             else None,
-            self.on_z21_feedback
+            self.on_z21_feedback,
+            self.on_z21_extended_accessory
         )
+
+        for raw_address in self.signals.extended_raw_addresses():
+            self.z21.request_extended_accessory_info(raw_address)
 
         # -------------------------------------------------
         # Taster
@@ -175,6 +179,27 @@ class Stellwerk:
             f"R-Bus: Modul {module}, "
             f"Eingang {input_number} -> {state}"
         )
+
+    def on_z21_extended_accessory(self, raw_address, value):
+
+        signal_name, aspect, led = self.signals.update_extended(
+            raw_address,
+            value
+        )
+
+        if signal_name is None:
+            return
+
+        if aspect is None:
+            print(
+                f"Signal {signal_name}: unbekannter "
+                f"DCCext-Wert {value}"
+            )
+            self.leds.signal_aspect(led, None)
+            return
+
+        print(f"Signal {signal_name}: {aspect} (DCCext {value})")
+        self.leds.signal_aspect(led, aspect)
 
     def on_z21_change(
         self,

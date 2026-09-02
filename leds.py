@@ -24,6 +24,7 @@ from config import (
 
 YELLOW = (255, 180, 0)
 RED = (255, 0, 0)
+WHITE = (255, 255, 255)
 OFF = (0, 0, 0)
 
 class LEDs:
@@ -42,6 +43,9 @@ class LEDs:
 
         self.blink_thread = None
         self.blink_stop_event = threading.Event()
+        self.signal_blink_thread = None
+        self.signal_blink_stop_event = threading.Event()
+        self.signal_indicator_led = None
 
     # ==================================================
     # START
@@ -297,6 +301,61 @@ class LEDs:
             f"{switch_name} = {position} "
             f"-> LED {led}"
         )
+
+    # ==================================================
+    # SIGNALBEGRIFF AN EINER LED ANZEIGEN
+    # ==================================================
+
+    def signal_aspect(self, led, aspect):
+
+        self.stop_signal_blink()
+        self.signal_indicator_led = led
+
+        if aspect == "Hp0":
+            self.set(led, *RED)
+            self.show()
+            return
+
+        if aspect == "Hp1":
+            self.set(led, *OFF)
+            self.show()
+            return
+
+        colors = {
+            "Hp0_Sh1": WHITE,
+            "Hp2": YELLOW,
+        }
+        color = colors.get(aspect)
+
+        if color is None:
+            self.set(led, *OFF)
+            self.show()
+            return
+
+        self.signal_blink_stop_event.clear()
+
+        def blink():
+            state = False
+
+            while not self.signal_blink_stop_event.is_set():
+                state = not state
+                self.set(led, *(color if state else OFF))
+                self.show()
+                self.signal_blink_stop_event.wait(BLINK_INTERVAL)
+
+        self.signal_blink_thread = threading.Thread(
+            target=blink,
+            daemon=True
+        )
+        self.signal_blink_thread.start()
+
+    def stop_signal_blink(self):
+
+        self.signal_blink_stop_event.set()
+
+        if self.signal_blink_thread:
+            self.signal_blink_thread.join(timeout=1)
+            self.signal_blink_thread = None
 
     # ==================================================
     # FAHRSTRASSEN-LEDs ERMITTELN
@@ -629,4 +688,5 @@ class LEDs:
         )
 
         self.stop_blink()
+        self.stop_signal_blink()
         self.all_off()

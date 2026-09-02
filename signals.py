@@ -13,8 +13,29 @@ class SignalController:
             for address in config.get("addresses", [])
         }
 
+        self.extended_addresses = {
+            config["raw_address"]: name
+            for name, config in SIGNALS.items()
+            if config.get("type") == "dcc_ext"
+        }
+
     def uses_address(self, address):
         return address in self.addresses
+
+    def extended_raw_addresses(self):
+        return self.extended_addresses.keys()
+
+    def update_extended(self, raw_address, value):
+        signal_name = self.extended_addresses.get(raw_address)
+
+        if signal_name is None:
+            return None, None, None
+
+        config = SIGNALS[signal_name]
+        aspect = config.get("dcc_ext_aspects", {}).get(value)
+        self.states[signal_name] = aspect or f"DCCext {value}"
+
+        return signal_name, aspect, config.get("indicator_led")
 
     def command(self, signal_name, aspect):
         if signal_name not in SIGNALS:

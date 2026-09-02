@@ -101,6 +101,18 @@ SWITCHES = {
 # ---------------------------------------------------------
 
 SIGNALS = {
+    "n4": {
+        "type": "dcc_ext",
+        "address": 116,
+        "raw_address": 119,
+        "dcc_ext_aspects": {
+            0: "Hp0",
+            4: "Hp2",
+            16: "Hp1",
+            65: "Hp0_Sh1",
+        },
+        "indicator_led": 21,
+    },
     "signal_abs": {
         "type": "four_aspect",
         "addresses": [49, 50],

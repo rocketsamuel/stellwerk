@@ -29,6 +29,7 @@ class Z21:
         self.callback = None
         self.broadcast_callback = None
         self.feedback_callback = None
+        self.extended_accessory_callback = None
 
         # Z21-Adresse -> Stellung
         self.states = {}
@@ -159,16 +160,31 @@ class Z21:
             (Z21_IP, Z21_PORT)
         )
 
+    def request_extended_accessory_info(self, raw_address):
+
+        msb = (raw_address >> 8) & 0xff
+        lsb = raw_address & 0xff
+        xor_byte = 0x44 ^ msb ^ lsb
+
+        packet = bytes([
+            0x09, 0x00, 0x40, 0x00,
+            0x44, msb, lsb, 0x00, xor_byte,
+        ])
+
+        self.socket.sendto(packet, (Z21_IP, Z21_PORT))
+
     def start(
         self,
         callback,
         broadcast_callback=None,
-        feedback_callback=None
+        feedback_callback=None,
+        extended_accessory_callback=None
     ):
 
         self.callback = callback
         self.broadcast_callback = broadcast_callback
         self.feedback_callback = feedback_callback
+        self.extended_accessory_callback = extended_accessory_callback
         self.running = True
 
         self.subscribe()
@@ -267,6 +283,10 @@ class Z21:
         if data[3] != 0x00:
             return
 
+        if data[4] == 0x44:
+            self._process_extended_accessory(data)
+            return
+
         if data[4] not in (0x43, 0x53):
             return
 
@@ -297,6 +317,17 @@ class Z21:
                 address,
                 position
             )
+
+    def _process_extended_accessory(self, data):
+
+        if len(data) < 10 or data[8] != 0x00:
+            return
+
+        raw_address = (data[5] << 8) | data[6]
+        value = data[7]
+
+        if self.extended_accessory_callback:
+            self.extended_accessory_callback(raw_address, value)
 
     def _process_feedback(self, data):
 
