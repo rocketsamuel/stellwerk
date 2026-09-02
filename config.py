@@ -15,7 +15,7 @@ Z21_LOG_BROADCASTS = False
 ROUTE_TIMEOUT = 10.0
 
 # WS2812B
-LED_COUNT = 20
+LED_COUNT = 25
 LED_PIN = 18
 LED_BRIGHTNESS = 32
 
@@ -62,6 +62,11 @@ SWITCHES = {
     "eow1": {
         "type": "turnout",
         "address": 127,
+        "inverted": True
+    },
+    "eow2": {
+        "type": "turnout",
+        "address": 126,
         "inverted": True
     },
     "sw42": {
@@ -275,7 +280,8 @@ ROUTES = {
      "start": "HBF4",
      "target": "EOW5",
      "switches": {
-         "eow1": "turnout"
+         "eow1": "turnout",
+         "eow2": "turnout"
      },
   },
   "ABS1_EOW5": {
@@ -323,6 +329,10 @@ SWITCH_LEDS = {
     "eow1": {
         "straight": 16,
         "turnout": 15,
+    },
+    "eow2": {
+        "straight": 25,
+        "turnout": 24,
     },
 }
 
