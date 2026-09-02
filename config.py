@@ -263,7 +263,8 @@ ROUTES = {
      "start": "EOW5",
      "target": "HBF4",
      "switches": {
-         "eow1": "turnout"
+         "eow1": "turnout",
+         "eow2": "turnout"
      },
   },
   "EOW5_ABS1": {
@@ -271,6 +272,7 @@ ROUTES = {
      "target": "ABS1",
      "switches": {
          "eow1": "turnout",
+         "eow2": "turnout",
          "sw42": "straight",
          "sw46": "turnout"
      },
@@ -281,6 +283,7 @@ ROUTES = {
      "target": "ABS2",
      "switches": {
          "eow1": "turnout",
+         "eow2": "turnout",
          "sw42": "straight",
          "sw46": "straight"
      },
@@ -291,6 +294,7 @@ ROUTES = {
      "target": "ABS3",
      "switches": {
          "eow1": "turnout",
+         "eow2": "turnout",
          "sw42": "left"
      },
      "signals": {"signal_abs": "Hp0_Sh1"},
@@ -384,7 +388,8 @@ ROUTES = {
      "switches": {
          "sw46": "turnout",
          "sw42": "straight",
-         "eow1": "turnout"
+         "eow1": "turnout",
+         "eow2": "turnout"
      },
   },
   "ABS2_EOW5": {
@@ -393,7 +398,8 @@ ROUTES = {
      "switches": {
          "sw46": "straight",
          "sw42": "straight",
-         "eow1": "turnout"
+         "eow1": "turnout",
+         "eow2": "turnout"
      },
   },
   "ABS3_EOW5": {
@@ -401,7 +407,8 @@ ROUTES = {
      "target": "EOW5",
      "switches": {
          "sw42": "left",
-         "eow1": "turnout"
+         "eow1": "turnout",
+         "eow2": "turnout"
      },
   },
 }
