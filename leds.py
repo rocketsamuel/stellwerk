@@ -15,6 +15,7 @@ from config import (
     STARTUP_LED_FLASH_TIME,
     STARTUP_LED_FLASH_OFF_TIME,
     STARTUP_LED_FLASH_COUNT,
+    STARTUP_LED_BRIGHTNESS,
 )
 
 # ======================================================
@@ -66,42 +67,52 @@ class LEDs:
 
     def startup_sequence(self):
 
-        for led in STARTUP_LED_ORDER:
+        self.strip.setBrightness(
+            STARTUP_LED_BRIGHTNESS
+        )
 
-            self.set(
-                led,
-                *(0, 0, 255)
-            )
-
-            self.show()
-
-            time.sleep(
-                STARTUP_LED_DELAY
-            )
-
-        # Alle LEDs am Ende der Startsequenz gemeinsam aufblinken.
-        for _ in range(STARTUP_LED_FLASH_COUNT):
-
-            self.all_off()
-
-            time.sleep(
-                STARTUP_LED_FLASH_OFF_TIME
-            )
-
-            for led in range(1, LED_COUNT + 1):
+        try:
+            for led in STARTUP_LED_ORDER:
 
                 self.set(
                     led,
                     *(0, 0, 255)
                 )
 
-            self.show()
+                self.show()
 
-            time.sleep(
-                STARTUP_LED_FLASH_TIME
+                time.sleep(
+                    STARTUP_LED_DELAY
+                )
+
+            # Alle LEDs am Ende der Startsequenz gemeinsam aufblinken.
+            for _ in range(STARTUP_LED_FLASH_COUNT):
+
+                self.all_off()
+
+                time.sleep(
+                    STARTUP_LED_FLASH_OFF_TIME
+                )
+
+                for led in range(1, LED_COUNT + 1):
+
+                    self.set(
+                        led,
+                        *(0, 0, 255)
+                    )
+
+                self.show()
+
+                time.sleep(
+                    STARTUP_LED_FLASH_TIME
+                )
+
+            self.all_off()
+
+        finally:
+            self.strip.setBrightness(
+                LED_BRIGHTNESS
             )
-
-        self.all_off()
 
     # ==================================================
     # EINZELNE LED SETZEN
