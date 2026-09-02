@@ -1398,6 +1398,14 @@ def console_mode(
     )
 
     print(
+        "  led <nummer> <on|off|yellow|red|blue>"
+    )
+
+    print(
+        "  led <nummer> <rot> <grün> <blau>"
+    )
+
+    print(
         "  status"
     )
 
@@ -1483,6 +1491,61 @@ def console_mode(
                 f"Alle {LED_COUNT} LEDs "
                 "sollten jetzt gelb leuchten."
             )
+
+            continue
+
+        # =================================================
+        # EINZELNE LED ANSTEUERN
+        # =================================================
+
+        if parts[0] == "led" and len(parts) in (3, 5):
+
+            named_colors = {
+                "on": (255, 180, 0),
+                "an": (255, 180, 0),
+                "off": (0, 0, 0),
+                "aus": (0, 0, 0),
+                "yellow": (255, 180, 0),
+                "gelb": (255, 180, 0),
+                "red": (255, 0, 0),
+                "rot": (255, 0, 0),
+                "blue": (0, 0, 255),
+                "blau": (0, 0, 255),
+            }
+
+            try:
+                led = int(parts[1])
+
+                if len(parts) == 3:
+                    color_name = parts[2].lower()
+
+                    if color_name not in named_colors:
+                        raise ValueError(
+                            f"Unbekannte Farbe: {parts[2]}"
+                        )
+
+                    color = named_colors[color_name]
+
+                else:
+                    color = tuple(
+                        int(value) for value in parts[2:5]
+                    )
+
+                    if any(value < 0 or value > 255 for value in color):
+                        raise ValueError(
+                            "RGB-Werte müssen zwischen 0 und 255 liegen"
+                        )
+
+                stellwerk.leds.stop_blink()
+                stellwerk.leds.set(led, *color)
+                stellwerk.leds.show()
+
+                print(
+                    f"LED {led} gesetzt: RGB{color}"
+                )
+
+            except ValueError as error:
+                print(f"LED-Befehl fehlgeschlagen: {error}")
 
             continue
 
@@ -1594,6 +1657,14 @@ def console_mode(
 
         print(
             "  ledtest"
+        )
+
+        print(
+            "  led <nummer> <on|off|yellow|red|blue>"
+        )
+
+        print(
+            "  led <nummer> <rot> <grün> <blau>"
         )
 
         print(
