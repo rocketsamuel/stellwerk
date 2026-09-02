@@ -300,6 +300,37 @@ ROUTES = {
          "eow3": "straight"
      },
   },
+  "EOW7_HBF4": {
+     "start": "EOW7", "target": "HBF4",
+     "switches": {"eow1": "turnout", "eow2": "straight", "eow3": "straight"},
+  },
+  "EOW7_ABS1": {
+     "start": "EOW7", "target": "ABS1",
+     "switches": {"eow1": "turnout", "eow2": "straight", "eow3": "straight", "sw42": "straight", "sw46": "turnout"},
+     "signals": {"signal_abs": "Hp0_Sh1"},
+  },
+  "EOW7_ABS2": {
+     "start": "EOW7", "target": "ABS2",
+     "switches": {"eow1": "turnout", "eow2": "straight", "eow3": "straight", "sw42": "straight", "sw46": "straight"},
+     "signals": {"signal_abs": "Hp0_Sh1"},
+  },
+  "EOW7_ABS3": {
+     "start": "EOW7", "target": "ABS3",
+     "switches": {"eow1": "turnout", "eow2": "straight", "eow3": "straight", "sw42": "left"},
+     "signals": {"signal_abs": "Hp0_Sh1"},
+  },
+  "ABS1_EOW7": {
+     "start": "ABS1", "target": "EOW7",
+     "switches": {"sw46": "turnout", "sw42": "straight", "eow1": "turnout", "eow2": "straight", "eow3": "straight"},
+  },
+  "ABS2_EOW7": {
+     "start": "ABS2", "target": "EOW7",
+     "switches": {"sw46": "straight", "sw42": "straight", "eow1": "turnout", "eow2": "straight", "eow3": "straight"},
+  },
+  "ABS3_EOW7": {
+     "start": "ABS3", "target": "EOW7",
+     "switches": {"sw42": "left", "eow1": "turnout", "eow2": "straight", "eow3": "straight"},
+  },
   "EOW6_HBF4": {
      "start": "EOW6", "target": "HBF4",
      "switches": {"eow1": "turnout", "eow2": "straight", "eow3": "turnout"},
@@ -412,6 +443,13 @@ ROUTE_LEDS = {
     "EOW5_ABS3": [6, 7, 8, 13, 14, 17, 22, 23],
     "HBF4_EOW5": [13, 17, 22, 23],
     "HBF4_EOW7": [13, 17, 26, 30, 31],
+    "EOW7_HBF4": [13, 17, 26, 30, 31],
+    "EOW7_ABS1": [1, 2, 9, 13, 17, 26, 30, 31],
+    "EOW7_ABS2": [5, 9, 13, 17, 26, 30, 31],
+    "EOW7_ABS3": [6, 7, 8, 13, 14, 17, 26, 30, 31],
+    "ABS1_EOW7": [1, 2, 9, 13, 17, 26, 30, 31],
+    "ABS2_EOW7": [5, 9, 13, 17, 26, 30, 31],
+    "ABS3_EOW7": [6, 7, 8, 13, 14, 17, 26, 30, 31],
     "ABS1_EOW5": [1, 2, 9, 13, 17, 22, 23],
     "ABS2_EOW5": [5, 9, 13, 17, 22, 23],
     "ABS3_EOW5": [6, 7, 8, 13, 14, 17, 22, 23],
