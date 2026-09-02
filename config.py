@@ -15,7 +15,7 @@ Z21_LOG_BROADCASTS = False
 ROUTE_TIMEOUT = 10.0
 
 # WS2812B
-LED_COUNT = 25
+LED_COUNT = 31
 LED_PIN = 18
 LED_BRIGHTNESS = 32
 
@@ -46,6 +46,7 @@ BUTTON_PINS = {
     "BW": 16,
     "EOW5": 26,
     "EOW6": 20,
+    "EOW7": 21,
     "RELEASE": 17,
     "SHUTDOWN": 25,
 }
@@ -68,6 +69,10 @@ SWITCHES = {
         "type": "turnout",
         "address": 126,
         "inverted": True
+    },
+    "eow3": {
+        "type": "turnout",
+        "address": 128,
     },
     "sw42": {
         "type": "three_way",
@@ -284,6 +289,15 @@ ROUTES = {
          "eow2": "turnout"
      },
   },
+  "HBF4_EOW7": {
+     "start": "HBF4",
+     "target": "EOW7",
+     "switches": {
+         "eow1": "turnout",
+         "eow2": "straight",
+         "eow3": "straight"
+     },
+  },
   "ABS1_EOW5": {
      "start": "ABS1",
      "target": "EOW5",
@@ -334,6 +348,10 @@ SWITCH_LEDS = {
         "straight": 25,
         "turnout": 24,
     },
+    "eow3": {
+        "straight": 28,
+        "turnout": 27,
+    },
 }
 
 ROUTE_LEDS = {
@@ -351,12 +369,13 @@ ROUTE_LEDS = {
     "BW_ABS1": [1, 2, 9, 13, 18, 19, 20],
     "BW_ABS2": [5, 9, 13, 18, 19, 20],
     "BW_ABS3": [6, 7, 8, 13, 14, 18, 19, 20],
-    "EOW5_HBF4": [13, 17],
-    "EOW5_ABS1": [1, 2, 9, 13, 17],
-    "EOW5_ABS2": [5, 9, 13, 17],
-    "EOW5_ABS3": [6, 7, 8, 13, 14, 17],
-    "HBF4_EOW5": [13, 17],
-    "ABS1_EOW5": [1, 2, 9, 13, 17],
-    "ABS2_EOW5": [5, 9, 13, 17],
-    "ABS3_EOW5": [6, 7, 8, 13, 14, 17],
+    "EOW5_HBF4": [13, 17, 22, 23],
+    "EOW5_ABS1": [1, 2, 9, 13, 17, 22, 23],
+    "EOW5_ABS2": [5, 9, 13, 17, 22, 23],
+    "EOW5_ABS3": [6, 7, 8, 13, 14, 17, 22, 23],
+    "HBF4_EOW5": [13, 17, 22, 23],
+    "HBF4_EOW7": [13, 17, 30, 31],
+    "ABS1_EOW5": [1, 2, 9, 13, 17, 22, 23],
+    "ABS2_EOW5": [5, 9, 13, 17, 22, 23],
+    "ABS3_EOW5": [6, 7, 8, 13, 14, 17, 22, 23],
 }
