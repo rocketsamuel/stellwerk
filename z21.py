@@ -160,6 +160,20 @@ class Z21:
             (Z21_IP, Z21_PORT)
         )
 
+    def request_turnout_info(self, address):
+
+        function_address = address - 1
+        msb = (function_address >> 8) & 0xff
+        lsb = function_address & 0xff
+        xor_byte = 0x43 ^ msb ^ lsb
+
+        packet = bytes([
+            0x08, 0x00, 0x40, 0x00,
+            0x43, msb, lsb, xor_byte,
+        ])
+
+        self.socket.sendto(packet, (Z21_IP, Z21_PORT))
+
     def request_extended_accessory_info(self, raw_address):
 
         msb = (raw_address >> 8) & 0xff

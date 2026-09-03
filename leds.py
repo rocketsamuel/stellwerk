@@ -43,9 +43,8 @@ class LEDs:
 
         self.blink_thread = None
         self.blink_stop_event = threading.Event()
-        self.signal_blink_thread = None
-        self.signal_blink_stop_event = threading.Event()
-        self.signal_indicator_led = None
+        self.signal_blink_threads = {}
+        self.signal_blink_stop_events = {}
 
     # ==================================================
     # START
@@ -308,17 +307,12 @@ class LEDs:
 
     def signal_aspect(self, led, aspect):
 
-        self.stop_signal_blink()
-        self.signal_indicator_led = led
-
         if aspect == "Hp0":
-            self.set(led, *RED)
-            self.show()
+            self.signal_indicator(led, RED)
             return
 
         if aspect == "Hp1":
-            self.set(led, *OFF)
-            self.show()
+            self.signal_indicator(led, OFF)
             return
 
         colors = {
@@ -328,34 +322,62 @@ class LEDs:
         color = colors.get(aspect)
 
         if color is None:
-            self.set(led, *OFF)
+            self.signal_indicator(led, OFF)
+            return
+
+        self.signal_indicator(led, color, blink=True)
+
+    def signal_indicator(self, led, color, blink=False):
+
+        self.stop_signal_blink(led)
+
+        if not blink:
+            self.set(led, *color)
             self.show()
             return
 
-        self.signal_blink_stop_event.clear()
+        stop_event = threading.Event()
+        self.signal_blink_stop_events[led] = stop_event
 
         def blink():
             state = False
 
-            while not self.signal_blink_stop_event.is_set():
+            while not stop_event.is_set():
                 state = not state
                 self.set(led, *(color if state else OFF))
                 self.show()
-                self.signal_blink_stop_event.wait(BLINK_INTERVAL)
+                stop_event.wait(BLINK_INTERVAL)
 
-        self.signal_blink_thread = threading.Thread(
+        thread = threading.Thread(
             target=blink,
             daemon=True
         )
-        self.signal_blink_thread.start()
+        self.signal_blink_threads[led] = thread
+        thread.start()
 
-    def stop_signal_blink(self):
+    def stop_signal_blink(self, led=None):
 
-        self.signal_blink_stop_event.set()
+        leds = (
+            [led]
+            if led is not None
+            else list(self.signal_blink_threads)
+        )
 
-        if self.signal_blink_thread:
-            self.signal_blink_thread.join(timeout=1)
-            self.signal_blink_thread = None
+        for indicator_led in leds:
+            stop_event = self.signal_blink_stop_events.pop(
+                indicator_led,
+                None
+            )
+            thread = self.signal_blink_threads.pop(
+                indicator_led,
+                None
+            )
+
+            if stop_event:
+                stop_event.set()
+
+            if thread:
+                thread.join(timeout=1)
 
     # ==================================================
     # FAHRSTRASSEN-LEDs ERMITTELN

@@ -117,6 +117,14 @@ class Stellwerk:
         for raw_address in self.signals.extended_raw_addresses():
             self.z21.request_extended_accessory_info(raw_address)
 
+        accessory_addresses = (
+            set(self.switches.address_map)
+            | set(self.signals.basic_addresses())
+        )
+
+        for address in sorted(accessory_addresses):
+            self.z21.request_turnout_info(address)
+
         # -------------------------------------------------
         # Taster
         # -------------------------------------------------
@@ -216,6 +224,17 @@ class Stellwerk:
                 f"-> {position}"
             )
 
+            (
+                signal_name,
+                display_name,
+                aspect,
+                led,
+            ) = self.signals.update_basic(address, position)
+
+            if signal_name is not None:
+                print(f"Signal {display_name}: {aspect}")
+                self.update_p4_indicator(signal_name, aspect, led)
+
             return
 
         print(
@@ -253,6 +272,13 @@ class Stellwerk:
             logical_position
         )
 
+        if switch_name == "sw42":
+            self.update_p4_indicator(
+                "signal_abs",
+                self.signals.states.get("signal_abs"),
+                33
+            )
+
         # -------------------------------------------------
         # Aktive Fahrstraße überwachen
         # -------------------------------------------------
@@ -279,6 +305,32 @@ class Stellwerk:
             print(
                 f"     {name} = {state}"
             )
+
+    def update_p4_indicator(self, signal_name, aspect, led):
+
+        if signal_name != "signal_abs" or led is None:
+            return
+
+        if aspect == "Hp0":
+            self.leds.signal_indicator(led, (255, 0, 0))
+            return
+
+        if aspect == "Hp2":
+            self.leds.signal_indicator(
+                led,
+                (255, 180, 0),
+                blink=True
+            )
+            return
+
+        if (
+            aspect == "Hp0_Sh1"
+            and self.switches.states.get("sw42") == "right"
+        ):
+            self.leds.signal_indicator(led, (255, 255, 255))
+            return
+
+        self.leds.signal_indicator(led, (0, 0, 0))
 
     # =====================================================
     # AKTIVE FAHRSTRASSE NACH WEICHENÄNDERUNG PRÜFEN

@@ -15,7 +15,7 @@ Z21_LOG_BROADCASTS = False
 ROUTE_TIMEOUT = 10.0
 
 # WS2812B
-LED_COUNT = 31
+LED_COUNT = 33
 LED_PIN = 18
 LED_BRIGHTNESS = 32
 
@@ -114,8 +114,10 @@ SIGNALS = {
         "indicator_led": 21,
     },
     "signal_abs": {
+        "display_name": "p4",
         "type": "four_aspect",
         "addresses": [49, 50],
+        "indicator_led": 33,
         "aspects": {
             "Hp0": [
                 {"address": 49, "position": "straight"},

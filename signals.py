@@ -13,6 +13,8 @@ class SignalController:
             for address in config.get("addresses", [])
         }
 
+        self.basic_address_states = {}
+
         self.extended_addresses = {
             config["raw_address"]: name
             for name, config in SIGNALS.items()
@@ -21,6 +23,38 @@ class SignalController:
 
     def uses_address(self, address):
         return address in self.addresses
+
+    def basic_addresses(self):
+        return self.addresses
+
+    def update_basic(self, address, position):
+        self.basic_address_states[address] = position
+
+        for signal_name, config in SIGNALS.items():
+            if address not in config.get("addresses", []):
+                continue
+
+            aspects = config.get("aspects", {})
+
+            for aspect, outputs in sorted(
+                aspects.items(),
+                key=lambda item: len(item[1]),
+                reverse=True
+            ):
+                if all(
+                    self.basic_address_states.get(output["address"])
+                    == output["position"]
+                    for output in outputs
+                ):
+                    self.states[signal_name] = aspect
+                    return (
+                        signal_name,
+                        config.get("display_name", signal_name),
+                        aspect,
+                        config.get("indicator_led"),
+                    )
+
+        return None, None, None, None
 
     def extended_raw_addresses(self):
         return self.extended_addresses.keys()
