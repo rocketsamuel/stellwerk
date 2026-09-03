@@ -118,6 +118,7 @@ SIGNALS = {
         "type": "four_aspect",
         "addresses": [49, 50],
         "indicator_led": 33,
+        "default_aspect": "Hp0",
         "aspects": {
             "Hp0": [
                 {"address": 49, "position": "straight"},

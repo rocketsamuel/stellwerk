@@ -5,7 +5,11 @@ class SignalController:
 
     def __init__(self, z21):
         self.z21 = z21
-        self.states = {}
+        self.states = {
+            name: config["default_aspect"]
+            for name, config in SIGNALS.items()
+            if "default_aspect" in config
+        }
 
         self.addresses = {
             address

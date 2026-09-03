@@ -101,6 +101,12 @@ class Stellwerk:
 
         self.leds.start()
 
+        self.update_p4_indicator(
+            "signal_abs",
+            self.signals.states.get("signal_abs"),
+            33
+        )
+
         # -------------------------------------------------
         # Z21
         # -------------------------------------------------
