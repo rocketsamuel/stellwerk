@@ -11,6 +11,7 @@ from config import (
     SHUTDOWN_HOLD_TIME,
     SHUTDOWN_FLASH_COUNT,
     Z21_LOG_BROADCASTS,
+    FEEDBACKS,
 )
 
 from z21 import Z21
@@ -193,6 +194,22 @@ class Stellwerk:
             f"R-Bus: Modul {module}, "
             f"Eingang {input_number} -> {state}"
         )
+
+        address = (module - 1) * 8 + input_number
+
+        for name, config in FEEDBACKS.items():
+            if config["address"] != address:
+                continue
+
+            leds = config["leds"]
+
+            for led in leds:
+                self.leds.occupancy(led, occupied)
+
+            print(
+                f"Rückmelder {name}: Adresse {address} "
+                f"-> {state}, LEDs {leds}"
+            )
 
     def on_z21_extended_accessory(self, raw_address, value):
 

@@ -45,6 +45,8 @@ class LEDs:
         self.blink_stop_event = threading.Event()
         self.signal_blink_threads = {}
         self.signal_blink_stop_events = {}
+        self.colors = {}
+        self.occupied_leds = set()
 
     # ==================================================
     # START
@@ -136,10 +138,44 @@ class LEDs:
                 f"(erlaubt: 1-{LED_COUNT})"
             )
 
+        color = (r, g, b)
+        self.colors[led] = color
+
+        displayed_color = (
+            RED
+            if led in self.occupied_leds
+            else color
+        )
+
         self.strip.setPixelColor(
             led - 1,
-            Color(r, g, b)
+            Color(*displayed_color)
         )
+
+    # ==================================================
+    # GLEISBELEGTANZEIGE
+    # ==================================================
+
+    def occupancy(self, led, occupied):
+
+        if led < 1 or led > LED_COUNT:
+            raise ValueError(
+                f"Ungültige LED-Nummer: {led} "
+                f"(erlaubt: 1-{LED_COUNT})"
+            )
+
+        if occupied:
+            self.occupied_leds.add(led)
+            displayed_color = RED
+        else:
+            self.occupied_leds.discard(led)
+            displayed_color = self.colors.get(led, OFF)
+
+        self.strip.setPixelColor(
+            led - 1,
+            Color(*displayed_color)
+        )
+        self.show()
 
     # ==================================================
     # LED-STRIP AKTUALISIEREN
@@ -711,4 +747,5 @@ class LEDs:
 
         self.stop_blink()
         self.stop_signal_blink()
+        self.occupied_leds.clear()
         self.all_off()
