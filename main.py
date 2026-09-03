@@ -327,7 +327,11 @@ class Stellwerk:
             aspect == "Hp0_Sh1"
             and self.switches.states.get("sw42") == "right"
         ):
-            self.leds.signal_indicator(led, (255, 255, 255))
+            self.leds.signal_indicator(
+                led,
+                (255, 255, 255),
+                blink=True
+            )
             return
 
         self.leds.signal_indicator(led, (0, 0, 0))
