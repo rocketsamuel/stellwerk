@@ -12,6 +12,7 @@ from config import (
     SHUTDOWN_FLASH_COUNT,
     Z21_LOG_BROADCASTS,
     FEEDBACKS,
+    SHOW_OCCUPANCY,
 )
 
 from z21 import Z21
@@ -194,6 +195,9 @@ class Stellwerk:
             f"R-Bus: Modul {module}, "
             f"Eingang {input_number} -> {state}"
         )
+
+        if not SHOW_OCCUPANCY:
+            return
 
         address = (module - 1) * 8 + input_number
 

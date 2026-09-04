@@ -72,6 +72,9 @@ FEEDBACKS = {
     },
 }
 
+# Rote Belegtanzeige auf den zugeordneten Gleis-LEDs aktivieren.
+SHOW_OCCUPANCY = False
+
 # ---------------------------------------------------------
 # WEICHEN
 # ---------------------------------------------------------
