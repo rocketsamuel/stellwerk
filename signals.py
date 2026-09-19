@@ -3,8 +3,9 @@ from config import SIGNALS
 
 class SignalController:
 
-    def __init__(self, z21):
+    def __init__(self, z21, leds=None):
         self.z21 = z21
+        self.leds = leds
         self.states = {
             name: config["default_aspect"]
             for name, config in SIGNALS.items()
@@ -24,6 +25,11 @@ class SignalController:
             for name, config in SIGNALS.items()
             if config.get("type") == "dcc_ext"
         }
+
+    def initialize_led_signals(self):
+        for name, config in SIGNALS.items():
+            if config.get("type") == "led":
+                self.command(name, config["default_aspect"])
 
     def uses_address(self, address):
         return address in self.addresses
@@ -90,6 +96,11 @@ class SignalController:
         outputs = aspects[aspect]
 
         print(f"Signal {signal_name}: {aspect}")
+
+        if config.get("type") == "led":
+            if self.leds is None:
+                raise RuntimeError("LED-Steuerung für das Signal fehlt")
+            self.leds.shunting_signal(config["aspect_leds"], aspect)
 
         for output in outputs:
             address = output["address"]

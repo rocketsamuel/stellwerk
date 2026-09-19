@@ -15,7 +15,7 @@ Z21_LOG_BROADCASTS = False
 ROUTE_TIMEOUT = 10.0
 
 # WS2812B
-LED_COUNT = 33
+LED_COUNT = 34
 LED_PIN = 18
 LED_BRIGHTNESS = 32
 
@@ -124,6 +124,12 @@ SWITCHES = {
 # ---------------------------------------------------------
 
 SIGNALS = {
+    "ls5": {
+        "type": "led",
+        "default_aspect": "Hp0",
+        "aspect_leds": {"Sh1": 32, "Hp0": 33},
+        "aspects": {"Hp0": [], "Sh1": []},
+    },
     "n4": {
         "type": "dcc_ext",
         "address": 116,
@@ -140,7 +146,7 @@ SIGNALS = {
         "display_name": "p4",
         "type": "four_aspect",
         "addresses": [49, 50],
-        "indicator_led": 33,
+        "indicator_led": 34,
         "default_aspect": "Hp0",
         "aspects": {
             "Hp0": [
@@ -292,6 +298,7 @@ ROUTES = {
          "eow1": "turnout",
          "eow2": "turnout"
      },
+     "signals": {"ls5": "Sh1"},
   },
   "EOW5_ABS1": {
      "start": "EOW5",
@@ -302,7 +309,7 @@ ROUTES = {
          "sw42": "straight",
          "sw46": "turnout"
      },
-     "signals": {"signal_abs": "Hp0_Sh1"},
+     "signals": {"signal_abs": "Hp0_Sh1", "ls5": "Sh1"},
   },
   "EOW5_ABS2": {
      "start": "EOW5",
@@ -313,7 +320,7 @@ ROUTES = {
          "sw42": "straight",
          "sw46": "straight"
      },
-     "signals": {"signal_abs": "Hp0_Sh1"},
+     "signals": {"signal_abs": "Hp0_Sh1", "ls5": "Sh1"},
   },
   "EOW5_ABS3": {
      "start": "EOW5",
@@ -323,7 +330,7 @@ ROUTES = {
          "eow2": "turnout",
          "sw42": "left"
      },
-     "signals": {"signal_abs": "Hp0_Sh1"},
+     "signals": {"signal_abs": "Hp0_Sh1", "ls5": "Sh1"},
   },
   "HBF4_EOW5": {
      "start": "HBF4",

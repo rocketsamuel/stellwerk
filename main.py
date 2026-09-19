@@ -37,11 +37,12 @@ class Stellwerk:
             self.z21
         )
 
-        self.signals = SignalController(
-            self.z21
-        )
-
         self.leds = LEDs()
+
+        self.signals = SignalController(
+            self.z21,
+            self.leds
+        )
 
         self.buttons = None
 
@@ -102,11 +103,12 @@ class Stellwerk:
         # -------------------------------------------------
 
         self.leds.start()
+        self.signals.initialize_led_signals()
 
         self.update_p4_indicator(
             "signal_abs",
             self.signals.states.get("signal_abs"),
-            33
+            34
         )
 
         # -------------------------------------------------
@@ -303,7 +305,7 @@ class Stellwerk:
             self.update_p4_indicator(
                 "signal_abs",
                 self.signals.states.get("signal_abs"),
-                33
+                34
             )
 
         # -------------------------------------------------

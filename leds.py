@@ -341,6 +341,14 @@ class LEDs:
     # SIGNALBEGRIFF AN EINER LED ANZEIGEN
     # ==================================================
 
+    def shunting_signal(self, aspect_leds, aspect):
+        # Erst beide Begriffe ausschalten, dann den gewünschten einschalten.
+        for led in aspect_leds.values():
+            self.stop_signal_blink(led)
+            self.set(led, *OFF)
+        self.set(aspect_leds[aspect], *(WHITE if aspect == "Sh1" else RED))
+        self.show()
+
     def signal_aspect(self, led, aspect):
 
         if aspect == "Hp0":
