@@ -70,10 +70,14 @@ FEEDBACKS = {
         "address": 27,
         "leds": [6, 7, 8, 14],
     },
+    "EOW5": {
+        "address": 89,
+        "leds": [22, 23],
+    },
 }
 
 # Rote Belegtanzeige auf den zugeordneten Gleis-LEDs aktivieren.
-SHOW_OCCUPANCY = False
+SHOW_OCCUPANCY = True
 
 # ---------------------------------------------------------
 # WEICHEN
