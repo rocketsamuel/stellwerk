@@ -864,6 +864,8 @@ class Stellwerk:
 
     def shutdown_raspberry_pi(self):
 
+        self.leds.shutdown()
+
         print()
         print(
             "Herunterfahren durch SHUTDOWN-Taster..."

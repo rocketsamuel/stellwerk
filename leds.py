@@ -47,6 +47,8 @@ class LEDs:
         self.signal_blink_stop_events = {}
         self.colors = {}
         self.occupied_leds = set()
+        self.output_lock = threading.Lock()
+        self.output_disabled = False
 
     # ==================================================
     # START
@@ -147,10 +149,14 @@ class LEDs:
             else color
         )
 
-        self.strip.setPixelColor(
-            led - 1,
-            Color(*displayed_color)
-        )
+        self._write_color(led, displayed_color)
+
+    def _write_color(self, led, color):
+
+        with self.output_lock:
+            if self.output_disabled:
+                color = OFF
+            self.strip.setPixelColor(led - 1, Color(*color))
 
     # ==================================================
     # GLEISBELEGTANZEIGE
@@ -171,10 +177,7 @@ class LEDs:
             self.occupied_leds.discard(led)
             displayed_color = self.colors.get(led, OFF)
 
-        self.strip.setPixelColor(
-            led - 1,
-            Color(*displayed_color)
-        )
+        self._write_color(led, displayed_color)
         self.show()
 
     # ==================================================
@@ -752,6 +755,10 @@ class LEDs:
         print(
             "LEDs werden ausgeschaltet..."
         )
+
+        # Auch verspätete Rückmeldungen dürfen keine LED mehr einschalten.
+        with self.output_lock:
+            self.output_disabled = True
 
         self.stop_blink()
         self.stop_signal_blink()
