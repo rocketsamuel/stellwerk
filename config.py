@@ -74,6 +74,10 @@ FEEDBACKS = {
         "address": 89,
         "leds": [22, 23],
     },
+    "HBF4": {
+        "address": 43,
+        "leds": [13],
+    },
 }
 
 # Rote Belegtanzeige auf den zugeordneten Gleis-LEDs aktivieren.
