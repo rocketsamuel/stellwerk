@@ -75,8 +75,12 @@ FEEDBACKS = {
         "leds": [22, 23],
     },
     "HBF4": {
-        "address": 43,
+        "address": 25,
         "leds": [13],
+    },
+    "BW": {
+        "address": 43,
+        "leds": [18, 19, 20],
     },
 }
 
