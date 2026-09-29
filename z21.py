@@ -87,8 +87,6 @@ class Z21:
         lsb = address & 0xff
 
         xor_on = (
-            0x40 ^
-            0x00 ^
             0x53 ^
             msb ^
             lsb ^
@@ -96,8 +94,6 @@ class Z21:
         )
 
         xor_off = (
-            0x40 ^
-            0x00 ^
             0x53 ^
             msb ^
             lsb ^

@@ -13,6 +13,8 @@ from config import (
     Z21_LOG_BROADCASTS,
     FEEDBACKS,
     SHOW_OCCUPANCY,
+    NIGHT_DIMMING_ADDRESS,
+    NIGHT_DIMMING_POSITION,
 )
 
 from z21 import Z21
@@ -123,6 +125,13 @@ class Stellwerk:
             self.on_z21_feedback,
             self.on_z21_extended_accessory
         )
+
+        if NIGHT_DIMMING_ADDRESS is not None:
+            self.z21.set_turnout(NIGHT_DIMMING_ADDRESS, NIGHT_DIMMING_POSITION)
+            print(
+                f"Nachtblendung: Startbefehl an Adresse {NIGHT_DIMMING_ADDRESS} "
+                f"({NIGHT_DIMMING_POSITION}) gesendet"
+            )
 
         for raw_address in self.signals.extended_raw_addresses():
             self.z21.request_extended_accessory_info(raw_address)

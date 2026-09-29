@@ -49,6 +49,14 @@ Alle Zeitangaben sind in Sekunden.
 
 ## LEDs und Startsequenz
 
+Beim Programmstart wird die YD8116-Nachtblendung über die normale Zubehöradresse
+`NIGHT_DIMMING_ADDRESS = 816` eingeschaltet. Der Startbefehl verwendet
+`NIGHT_DIMMING_POSITION = "turnout"` (Grün). Falls der Decoder die andere
+Schaltrichtung benötigt, auf `"straight"` (Rot) ändern. Mit Adresse `None` wird
+kein Startbefehl gesendet. Der Helligkeitswert bleibt in der YaMoRC-Software
+eingestellt (aktuell 7); das Stellwerk verändert ihn nicht. Der Decoder muss
+beim Programmstart eingeschaltet und über die Z21 erreichbar sein.
+
 | Einstellung | Aktueller Wert | Wirkung |
 | --- | --- | --- |
 | `LED_COUNT` | `34` | Anzahl der WS2812B-LEDs. |

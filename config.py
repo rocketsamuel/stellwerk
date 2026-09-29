@@ -14,6 +14,11 @@ Z21_BROADCAST_FLAGS = 0x00000003
 Z21_LOG_BROADCASTS = False
 ROUTE_TIMEOUT = 10.0
 
+# YD8116-Nachtblendung beim Programmstart aktivieren.
+# Normale Zubehöradresse; None deaktiviert den Startbefehl.
+NIGHT_DIMMING_ADDRESS = 816
+NIGHT_DIMMING_POSITION = "turnout"  # Grün; bei Bedarf "straight" (Rot).
+
 # WS2812B
 LED_COUNT = 34
 LED_PIN = 18
