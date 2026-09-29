@@ -232,11 +232,13 @@ class Stellwerk:
                 f"Signal {signal_name}: unbekannter "
                 f"DCCext-Wert {value}"
             )
-            self.leds.signal_aspect(led, None)
+            if led is not None:
+                self.leds.signal_aspect(led, None)
             return
 
         print(f"Signal {signal_name}: {aspect} (DCCext {value})")
-        self.leds.signal_aspect(led, aspect)
+        if led is not None:
+            self.leds.signal_aspect(led, aspect)
 
     def on_z21_change(
         self,

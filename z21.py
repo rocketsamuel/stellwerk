@@ -174,6 +174,22 @@ class Z21:
 
         self.socket.sendto(packet, (Z21_IP, Z21_PORT))
 
+    def set_extended_accessory(self, raw_address, value):
+        if not 0 <= raw_address <= 0x7ff:
+            raise ValueError(f"Ungültige DCCext-Adresse: {raw_address}")
+        if not 0 <= value <= 0xff:
+            raise ValueError(f"Ungültiger DCCext-Wert: {value}")
+
+        # Die Schnittstellenadresse wird unverändert übertragen.
+        msb = (raw_address >> 8) & 0xff
+        lsb = raw_address & 0xff
+        xor_byte = 0x54 ^ msb ^ lsb ^ value
+        packet = bytes([
+            0x0A, 0x00, 0x40, 0x00,
+            0x54, msb, lsb, value, 0x00, xor_byte,
+        ])
+        self.socket.sendto(packet, (Z21_IP, Z21_PORT))
+
     def request_extended_accessory_info(self, raw_address):
 
         msb = (raw_address >> 8) & 0xff

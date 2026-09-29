@@ -148,12 +148,12 @@ Der Code unterstützt auch `type: "double_slip"` für Doppelkreuzungsweichen mit
 
 ## Signale
 
-`SIGNALS` enthält drei derzeit verwendete Signaltypen. Fahrstraßen verweisen auf den internen Schlüssel, beispielsweise `signal_abs`. Das optionale `display_name` ändert nur die entsprechende Anzeige in der Ausgabe.
+`SIGNALS` unterstützt drei Signaltypen. Fahrstraßen verweisen auf den internen Schlüssel, beispielsweise `signal_abs`. Das optionale `display_name` ändert nur die entsprechende Anzeige in der Ausgabe.
 
 ### LED-Signal (`led`)
 
 ```python
-"ls5": {
+"beispiel_led": {
     "type": "led",
     "default_aspect": "Hp0",
     "aspect_leds": {"Sh1": 32, "Hp0": 33},
@@ -199,7 +199,11 @@ Jeder Befehl verwendet `address` und `position` (`straight` oder `turnout`). Die
 
 `raw_address` wird unverändert für Statusabfragen und die Zuordnung empfangener Meldungen verwendet. Das Feld `address` wird bei diesem Signaltyp derzeit nicht ausgewertet. Aus den Beispielwerten 116 und 119 sollte daher keine allgemeine Umrechnungsregel abgeleitet werden.
 
-`dcc_ext_aspects` übersetzt empfangene Zahlenwerte in Signalbegriffe; die Zuordnung muss zum Decoder passen. `indicator_led` legt die Anzeige-LED fest. Dieser Signaltyp wird aktuell nur abgefragt und angezeigt. Das Senden von DCC-Extended-Signalbefehlen ist nicht implementiert; `n4` kann mit dieser Konfiguration deshalb nicht über `ROUTES[...]["signals"]` gestellt werden.
+`dcc_ext_aspects` übersetzt empfangene Zahlenwerte in Signalbegriffe und wird beim Senden umgekehrt verwendet. `indicator_led` legt die Anzeige-LED fest. Zum Stellen müssen die erlaubten Begriffe zusätzlich in `aspects` eingetragen sein. `n4` bleibt mit obiger Konfiguration auf Abfragen und Anzeigen beschränkt.
+
+Das Sperrsignal `ls5` im Block EOW5 verwendet DCC-Extended mit der Schnittstellenadresse (`raw_address`) **125**, unverändert ohne Adressversatz. **Hp0 = 0**, **Sh1 = 65**. Seine Pult-LEDs bleiben 33 für Hp0 und 32 für Sh1. Beim Programmstart wird Hp0 gesendet; die vorhandenen Fahrstraßen von EOW5 stellen Sh1, beim Auflösen wird Hp0 gesendet. Empfangene Statusmeldungen aktualisieren ebenfalls die Pult-LEDs; bei unbekannten Aspekten bleiben beide dunkel.
+
+Die Befehle werden nach Abschnitt 5.4 der [Z21 LAN-Protokollspezifikation](https://www.z21.eu/de/downloads/anleitungen) gesendet.
 
 ## Fahrstraßen
 

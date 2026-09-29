@@ -28,7 +28,7 @@ class SignalController:
 
     def initialize_led_signals(self):
         for name, config in SIGNALS.items():
-            if config.get("type") == "led":
+            if config.get("aspect_leds"):
                 self.command(name, config["default_aspect"])
 
     def uses_address(self, address):
@@ -78,6 +78,8 @@ class SignalController:
         config = SIGNALS[signal_name]
         aspect = config.get("dcc_ext_aspects", {}).get(value)
         self.states[signal_name] = aspect or f"DCCext {value}"
+        if self.leds is not None and config.get("aspect_leds"):
+            self.leds.shunting_signal(config["aspect_leds"], aspect)
 
         return signal_name, aspect, config.get("indicator_led")
 
@@ -97,7 +99,14 @@ class SignalController:
 
         print(f"Signal {signal_name}: {aspect}")
 
-        if config.get("type") == "led":
+        if config.get("type") == "dcc_ext":
+            values = {
+                name: value
+                for value, name in config["dcc_ext_aspects"].items()
+            }
+            self.z21.set_extended_accessory(config["raw_address"], values[aspect])
+
+        if config.get("aspect_leds"):
             if self.leds is None:
                 raise RuntimeError("LED-Steuerung für das Signal fehlt")
             self.leds.shunting_signal(config["aspect_leds"], aspect)
