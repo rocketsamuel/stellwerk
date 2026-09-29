@@ -189,6 +189,11 @@ class Z21:
             0x54, msb, lsb, value, 0x00, xor_byte,
         ])
         self.socket.sendto(packet, (Z21_IP, Z21_PORT))
+        print(
+            f"Z21 DCCext gesendet: Schnittstellenadresse {raw_address}, "
+            f"Aspekt {value}, Ziel {Z21_IP}:{Z21_PORT}, "
+            f"Paket {packet.hex(' ')}"
+        )
 
     def request_extended_accessory_info(self, raw_address):
 

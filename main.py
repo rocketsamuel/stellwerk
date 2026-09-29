@@ -225,6 +225,10 @@ class Stellwerk:
         )
 
         if signal_name is None:
+            print(
+                f"Z21 DCCext empfangen: nicht zugeordnete "
+                f"Schnittstellenadresse {raw_address}, Aspekt {value}"
+            )
             return
 
         if aspect is None:
