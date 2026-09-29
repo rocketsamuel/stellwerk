@@ -201,7 +201,7 @@ Jeder Befehl verwendet `address` und `position` (`straight` oder `turnout`). Die
 
 `dcc_ext_aspects` übersetzt empfangene Zahlenwerte in Signalbegriffe und wird beim Senden umgekehrt verwendet. `indicator_led` legt die Anzeige-LED fest. Zum Stellen müssen die erlaubten Begriffe zusätzlich in `aspects` eingetragen sein. `n4` bleibt mit obiger Konfiguration auf Abfragen und Anzeigen beschränkt.
 
-Das Sperrsignal `ls5` im Block EOW5 verwendet DCC-Extended mit der Schnittstellenadresse (`raw_address`) **125**, unverändert ohne Adressversatz. **Hp0 = 0**, **Sh1 = 65**. Seine Pult-LEDs bleiben 33 für Hp0 und 32 für Sh1. Beim Programmstart wird Hp0 gesendet; die vorhandenen Fahrstraßen von EOW5 stellen Sh1, beim Auflösen wird Hp0 gesendet. Empfangene Statusmeldungen aktualisieren ebenfalls die Pult-LEDs; bei unbekannten Aspekten bleiben beide dunkel.
+Das Sperrsignal `ls5` im Block EOW5 hat die Bedienadresse **125** und verwendet DCC-Extended mit der Schnittstellenadresse (`raw_address`) **128**, bestätigt durch die Z21-Schaltmeldungen der Anlage. Die Schnittstellenadresse wird unverändert übertragen. **Hp0 = 0**, **Sh1 = 65**. Seine Pult-LEDs bleiben 33 für Hp0 und 32 für Sh1. Beim Programmstart wird Hp0 gesendet; die vorhandenen Fahrstraßen von EOW5 stellen Sh1, beim Auflösen wird Hp0 gesendet. Empfangene Statusmeldungen aktualisieren ebenfalls die Pult-LEDs; bei unbekannten Aspekten bleiben beide dunkel.
 
 Die Befehle werden nach Abschnitt 5.4 der [Z21 LAN-Protokollspezifikation](https://www.z21.eu/de/downloads/anleitungen) gesendet.
 

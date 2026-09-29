@@ -138,7 +138,8 @@ SWITCHES = {
 SIGNALS = {
     "ls5": {
         "type": "dcc_ext",
-        "raw_address": 125,
+        "address": 125,
+        "raw_address": 128,  # Durch Z21-Schaltmeldungen bestätigt.
         "dcc_ext_aspects": {0: "Hp0", 65: "Sh1"},
         "default_aspect": "Hp0",
         "aspect_leds": {"Sh1": 32, "Hp0": 33},
