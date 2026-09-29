@@ -24,7 +24,7 @@ class NightDimmingTests(unittest.TestCase):
         app.log_z21_broadcasts = False
         app.update_p4_indicator = Mock()
         app.start()
-        app.z21.set_turnout.assert_called_once_with(816, "turnout")
+        app.z21.set_turnout.assert_called_once_with(820, "turnout")
         self.assertEqual(
             [call[0] for call in app.z21.mock_calls],
             ["start", "set_turnout"],
@@ -38,15 +38,15 @@ class NightDimmingTests(unittest.TestCase):
         z21 = Z21.__new__(Z21)
         z21.socket = Mock()
         with patch("z21.time.sleep"):
-            z21.set_turnout(816, "turnout")
-            z21.set_turnout(816, "straight")
+            z21.set_turnout(820, "turnout")
+            z21.set_turnout(820, "straight")
         self.assertEqual(
             [call.args[0] for call in z21.socket.sendto.call_args_list],
             [bytes.fromhex(packet) for packet in [
-                "09 00 40 00 53 03 2f 89 f6",
-                "09 00 40 00 53 03 2f 81 fe",
-                "09 00 40 00 53 03 2f 88 f7",
-                "09 00 40 00 53 03 2f 80 ff",
+                "09 00 40 00 53 03 33 89 ea",
+                "09 00 40 00 53 03 33 81 e2",
+                "09 00 40 00 53 03 33 88 eb",
+                "09 00 40 00 53 03 33 80 e3",
             ]],
         )
 

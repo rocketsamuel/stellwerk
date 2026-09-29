@@ -50,7 +50,9 @@ Alle Zeitangaben sind in Sekunden.
 ## LEDs und Startsequenz
 
 Beim Programmstart wird die YD8116-Nachtblendung über die normale Zubehöradresse
-`NIGHT_DIMMING_ADDRESS = 816` eingeschaltet. Der Startbefehl verwendet
+`NIGHT_DIMMING_ADDRESS = 820` eingeschaltet. Im YD8116 bleibt die
+Nachtblendungsadresse 816 eingestellt; der Versatz um 4 wurde an dieser Anlage
+durch Schalten in der Z21-App bestätigt. Der Startbefehl verwendet
 `NIGHT_DIMMING_POSITION = "turnout"` (Grün). Falls der Decoder die andere
 Schaltrichtung benötigt, auf `"straight"` (Rot) ändern. Mit Adresse `None` wird
 kein Startbefehl gesendet. Der Helligkeitswert bleibt in der YaMoRC-Software

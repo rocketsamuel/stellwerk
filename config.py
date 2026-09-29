@@ -16,7 +16,7 @@ ROUTE_TIMEOUT = 10.0
 
 # YD8116-Nachtblendung beim Programmstart aktivieren.
 # Normale Zubehöradresse; None deaktiviert den Startbefehl.
-NIGHT_DIMMING_ADDRESS = 816
+NIGHT_DIMMING_ADDRESS = 820  # Z21-Adresse; YD8116-Nachtblendungsadresse 816.
 NIGHT_DIMMING_POSITION = "turnout"  # Grün; bei Bedarf "straight" (Rot).
 
 # WS2812B
